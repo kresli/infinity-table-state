@@ -1,0 +1,11 @@
+{
+  "include": [],
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./dist"
+  }
+}
