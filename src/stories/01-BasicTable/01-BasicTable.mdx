@@ -1,0 +1,41 @@
+import { Meta, Source } from "@storybook/blocks";
+import code_row from "./row.ts?raw";
+import code_data from "./data.ts?raw";
+import code_columns from "./columns.tsx?raw";
+import code_column from "./Column.tsx?raw";
+import code_table from "./Table.tsx?raw";
+import code_example from "./Example.tsx?raw";
+
+import { Example } from "./Example";
+
+<Meta title="01 Basic Table" />
+
+# Basic Table
+
+<Example />
+
+<Source language="tsx" code={code_example} />
+
+---
+
+---
+
+_Table.tsx_
+
+<Source language="tsx" code={code_table} />
+
+_columns.tsx_
+
+<Source language="tsx" code={code_columns} />
+
+_data.ts_
+
+<Source language="ts" code={code_data} />
+
+_Column.tsx_
+
+<Source language="ts" code={code_column} />
+
+_Row.ts_
+
+<Source language="ts" code={code_row} />
