@@ -1,42 +1,34 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 
-function VirtualList() {
-  return <div></div>;
-}
-
-const meta: Meta<typeof VirtualList> = {
+const meta: Meta<typeof VirtualContainer> = {
   title: "Components/VirtualList",
-  component: VirtualList,
+  component: VirtualContainer,
   parameters: {
     layout: "fullscreen",
   },
 };
 
 export default meta;
-type Story = StoryObj<typeof VirtualList>;
+type Story = StoryObj<typeof VirtualContainer>;
 
-// Basic example
 export const Default: Story = {
-  args: {},
+  args: {
+    containerHeight: 500,
+    totalRows: 20,
+    rowHeight: 50,
+  },
   render: VirtualContainer,
 };
 
-// Example with custom styling
-export const CustomStyling: Story = {
-  args: {
-    ...Default.args,
-    className: "custom-virtual-list",
-    itemClassName: "custom-item",
-  },
-};
-
-function VirtualContainer() {
+function VirtualContainer(props: {
+  containerHeight: number;
+  totalRows: number;
+  rowHeight: number;
+}) {
+  const { containerHeight: height, totalRows, rowHeight } = props;
   const [scrollTop, setScrollTop] = useState(0);
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => setScrollTop((prev) => prev - e.deltaY);
-  const height = 500;
-  const totalRows = 20;
-  const rowHeight = 50;
 
   return (
     <div className="fixed w-full h-full flex items-center justify-center">
@@ -45,27 +37,30 @@ function VirtualContainer() {
           className="absolute outline-4 outline-orange-200 w-full bg-slate-50/50"
           style={{ top: scrollTop }}
         >
-          <List
+          <VirtualList
             scrollTop={scrollTop}
             containerHeight={height}
             totalRows={totalRows}
             rowPixelHeight={rowHeight}
-          />
+          >
+            {(index) => <div>Row {index}</div>}
+          </VirtualList>
         </div>
       </div>
     </div>
   );
 }
 
-function List(props: {
+function VirtualList(props: {
   scrollTop: number;
   containerHeight: number;
   totalRows: number;
   rowPixelHeight: number;
+  children: (index: number) => React.ReactNode;
 }) {
   const { totalRows, rowPixelHeight, containerHeight, scrollTop } = props;
-  const absouluteFirstVisibleRowIndex = Math.floor(-scrollTop / rowPixelHeight);
 
+  const absouluteFirstVisibleRowIndex = Math.floor(-scrollTop / rowPixelHeight);
   const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex);
   const lastVisibleRowIndex = Math.min(
     totalRows - 1,
@@ -78,8 +73,6 @@ function List(props: {
     { length: visibleRowsCount },
     (_, index) => index + firstVisibleRowIndex
   );
-
-  console.log(totalRows);
 
   return (
     <div
@@ -100,7 +93,7 @@ function List(props: {
             height: rowPixelHeight,
           }}
         >
-          Row {rowIndex}
+          {props.children(rowIndex)}
         </div>
       ))}
     </div>
