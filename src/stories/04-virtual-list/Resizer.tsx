@@ -30,11 +30,13 @@ export function Resizer(props: PropsWithChildren) {
       </div>
       <div
         className={clsx(
-          "h-2 bg-gray-200 hover:bg-gray-400 cursor-row-resize rounded shrink-0",
+          "bg-gray-200 hover:bg-gray-400 cursor-row-resize rounded shrink-0 p-1 text-xs justify-center flex",
           active && "bg-gray-400"
         )}
         onMouseDown={onMouseDown}
-      />
+      >
+        Drag to resize
+      </div>
     </div>
   );
 }

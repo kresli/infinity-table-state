@@ -1,29 +1,43 @@
-import { forwardRef, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 interface VirtualListCoreProps {
   scrollTop: number;
   containerHeight: number;
   totalRows: number;
   rowPixelHeight: number;
+  buffer: number;
   children: (index: number) => React.ReactNode;
 }
 
-export const VirtualListCore = forwardRef(function VirtualListCore(
-  props: VirtualListCoreProps,
-  ref: React.Ref<HTMLDivElement>
-) {
-  const { totalRows, rowPixelHeight, containerHeight, scrollTop } = props;
-  const buffer = 5;
+function getVisibleRows(props: {
+  totalRows: number;
+  rowPixelHeight: number;
+  containerHeight: number;
+  scrollTop: number;
+  buffer: number;
+}) {
+  const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
 
   const absouluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
-  const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex);
+  const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex - buffer);
   const lastVisibleRowIndex = Math.min(
     totalRows - 1,
-    absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight)
+    absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight) + buffer
   );
 
+  return {
+    firstVisibleRowIndex,
+    lastVisibleRowIndex,
+  };
+}
+
+export function VirtualListCore(props: VirtualListCoreProps) {
+  const { totalRows, rowPixelHeight } = props;
+
+  const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows(props);
   const visibleRowsCount = lastVisibleRowIndex - firstVisibleRowIndex + 1;
 
+  // would be faster to use Array(visibleRowsCount).fill(null)
   const renderedRows = Array.from(
     { length: visibleRowsCount },
     (_, index) => index + firstVisibleRowIndex
@@ -31,7 +45,6 @@ export const VirtualListCore = forwardRef(function VirtualListCore(
 
   return (
     <div
-      ref={ref}
       className="grid w-full"
       style={{
         gridTemplateRows: `repeat(${totalRows}, minmax(0, 1fr))`,
@@ -54,76 +67,61 @@ export const VirtualListCore = forwardRef(function VirtualListCore(
       ))}
     </div>
   );
-});
+}
 
-type VirtualListProps = Omit<VirtualListCoreProps, "scrollTop" | "containerHeight">;
+interface VirtualListProps extends Omit<VirtualListCoreProps, "scrollTop" | "containerHeight"> {
+  onVisibleRowsChange: (visibleRows: [start: number, end: number]) => void;
+}
 
 export function VirtualList(props: VirtualListProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
+
+  const scrollTopRef = useRef(scrollTop);
+  scrollTopRef.current = scrollTop;
+
+  const propsRef = useRef(props);
+  propsRef.current = props;
+
   useLayoutEffect(() => {
     const parent = ref.current;
     if (!parent) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === parent) {
-          setContainerHeight(entry.contentRect.height);
+          const containerHeight = entry.contentRect.height;
+          const scrollTop = scrollTopRef.current;
+          setContainerHeight(containerHeight);
+          const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows({
+            ...propsRef.current,
+            scrollTop,
+            containerHeight,
+          });
+          console.log("Visible rows", firstVisibleRowIndex, lastVisibleRowIndex);
+          propsRef.current.onVisibleRowsChange([firstVisibleRowIndex, lastVisibleRowIndex]);
+          return;
         }
       }
     });
     observer.observe(parent);
 
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
-  const onWheel = (e: React.UIEvent<HTMLDivElement, UIEvent>) =>
+  const onScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
     setScrollTop(e.currentTarget.scrollTop);
-
-  console.log(scrollTop);
+    const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows({
+      ...props,
+      scrollTop: e.currentTarget.scrollTop,
+      containerHeight,
+    });
+    props.onVisibleRowsChange([firstVisibleRowIndex, lastVisibleRowIndex]);
+  };
 
   return (
-    <div className="w-full h-full overflow-auto" ref={ref} onScroll={onWheel}>
+    <div className="w-full h-full overflow-auto" ref={ref} onScroll={onScroll}>
       <VirtualListCore scrollTop={scrollTop} containerHeight={containerHeight} {...props} />
     </div>
-  );
-}
-
-export function VirtualListxa(props: VirtualListProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
-  useLayoutEffect(() => {
-    const parent = ref.current?.parentElement;
-    if (!parent) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === parent) {
-          setContainerHeight(entry.contentRect.height);
-        }
-      }
-    });
-    observer.observe(parent);
-    const onScroll = (e: Event) => {
-      const target = e.target as HTMLDivElement;
-      setScrollTop(target.scrollTop);
-    };
-    parent.addEventListener("scroll", onScroll);
-    return () => {
-      observer.disconnect();
-      parent.removeEventListener("scroll", onScroll);
-    };
-  }, []);
-  return (
-    <VirtualListCore
-      {...props}
-      ref={ref}
-      containerHeight={containerHeight}
-      scrollTop={scrollTop}
-      rowPixelHeight={props.rowPixelHeight}
-      totalRows={props.totalRows}
-    />
   );
 }

@@ -18,6 +18,7 @@ export const Default: Story = {
     containerHeight: 500,
     totalRows: 20,
     rowHeight: 50,
+    buffer: 1,
   },
   render: VirtualContainer,
 };
@@ -26,8 +27,9 @@ function VirtualContainer(props: {
   containerHeight: number;
   totalRows: number;
   rowHeight: number;
+  buffer: number;
 }) {
-  const { containerHeight: height, totalRows, rowHeight } = props;
+  const { containerHeight: height, totalRows, rowHeight, buffer } = props;
   const [scrollTop, setScrollTop] = useState(0);
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => setScrollTop((prev) => prev - e.deltaY);
 
@@ -43,6 +45,7 @@ function VirtualContainer(props: {
             containerHeight={height}
             totalRows={totalRows}
             rowPixelHeight={rowHeight}
+            buffer={buffer}
           >
             {(index) => <div>Row {index}</div>}
           </VirtualListCore>
