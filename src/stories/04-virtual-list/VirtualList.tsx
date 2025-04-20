@@ -15,7 +15,7 @@ function getVisibleRows(props: {
   containerHeight: number;
   scrollTop: number;
   buffer: number;
-}) {
+}): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
   const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
 
   const absouluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
@@ -25,16 +25,13 @@ function getVisibleRows(props: {
     absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight) + buffer
   );
 
-  return {
-    firstVisibleRowIndex,
-    lastVisibleRowIndex,
-  };
+  return [firstVisibleRowIndex, lastVisibleRowIndex];
 }
 
 export function VirtualListCore(props: VirtualListCoreProps) {
   const { totalRows, rowPixelHeight } = props;
 
-  const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows(props);
+  const [firstVisibleRowIndex, lastVisibleRowIndex] = getVisibleRows(props);
   const visibleRowsCount = lastVisibleRowIndex - firstVisibleRowIndex + 1;
 
   // would be faster to use Array(visibleRowsCount).fill(null)
@@ -93,12 +90,11 @@ export function VirtualList(props: VirtualListProps) {
           const containerHeight = entry.contentRect.height;
           const scrollTop = scrollTopRef.current;
           setContainerHeight(containerHeight);
-          const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows({
+          const [firstVisibleRowIndex, lastVisibleRowIndex] = getVisibleRows({
             ...propsRef.current,
             scrollTop,
             containerHeight,
           });
-          console.log("Visible rows", firstVisibleRowIndex, lastVisibleRowIndex);
           propsRef.current.onVisibleRowsChange([firstVisibleRowIndex, lastVisibleRowIndex]);
           return;
         }
@@ -111,7 +107,7 @@ export function VirtualList(props: VirtualListProps) {
 
   const onScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
     setScrollTop(e.currentTarget.scrollTop);
-    const { firstVisibleRowIndex, lastVisibleRowIndex } = getVisibleRows({
+    const [firstVisibleRowIndex, lastVisibleRowIndex] = getVisibleRows({
       ...props,
       scrollTop: e.currentTarget.scrollTop,
       containerHeight,
