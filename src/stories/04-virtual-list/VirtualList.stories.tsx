@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { VirtualListCore } from "./VirtualList";
 
 const meta: Meta<typeof VirtualContainer> = {
   title: "Components/VirtualList",
@@ -37,65 +38,16 @@ function VirtualContainer(props: {
           className="absolute outline-4 outline-orange-200 w-full bg-slate-50/50"
           style={{ top: scrollTop }}
         >
-          <VirtualList
-            scrollTop={scrollTop}
+          <VirtualListCore
+            scrollTop={-scrollTop}
             containerHeight={height}
             totalRows={totalRows}
             rowPixelHeight={rowHeight}
           >
             {(index) => <div>Row {index}</div>}
-          </VirtualList>
+          </VirtualListCore>
         </div>
       </div>
-    </div>
-  );
-}
-
-function VirtualList(props: {
-  scrollTop: number;
-  containerHeight: number;
-  totalRows: number;
-  rowPixelHeight: number;
-  children: (index: number) => React.ReactNode;
-}) {
-  const { totalRows, rowPixelHeight, containerHeight, scrollTop } = props;
-
-  const absouluteFirstVisibleRowIndex = Math.floor(-scrollTop / rowPixelHeight);
-  const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex);
-  const lastVisibleRowIndex = Math.min(
-    totalRows - 1,
-    absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight)
-  );
-
-  const visibleRowsCount = lastVisibleRowIndex - firstVisibleRowIndex + 1;
-
-  const renderedRows = Array.from(
-    { length: visibleRowsCount },
-    (_, index) => index + firstVisibleRowIndex
-  );
-
-  return (
-    <div
-      className="grid w-full"
-      style={{
-        gridTemplateRows: `repeat(${totalRows}, minmax(0, 1fr))`,
-        minHeight: totalRows * rowPixelHeight,
-      }}
-    >
-      {renderedRows.map((rowIndex) => (
-        <div
-          key={rowIndex}
-          className="outline outline-gray-300 bg-green-200/20"
-          style={{
-            gridRowStart: rowIndex + 1, // gridRowStart is 1-based index
-            minHeight: rowPixelHeight,
-            maxHeight: rowPixelHeight,
-            height: rowPixelHeight,
-          }}
-        >
-          {props.children(rowIndex)}
-        </div>
-      ))}
     </div>
   );
 }

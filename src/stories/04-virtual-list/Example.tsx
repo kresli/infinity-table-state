@@ -21,6 +21,7 @@ export function Example() {
   const rowsPerPage = 10;
 
   const [pages, setPages] = useState<Row[][]>([]);
+  const totalRecords = 1032; // Assuming a fixed total records count for simplicity
   const [fetchingPageIndex, setFetchingPageIndex] = useState(-1);
 
   const data = pages.flat();
@@ -51,6 +52,7 @@ export function Example() {
           onNextPageRequest={fetchNextPage}
           fetchingNextPage={fetchingNextPage}
           getRowId={getRowId}
+          totalRows={totalRecords}
         />
       </Resizer>
     </div>
