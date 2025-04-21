@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { fetchData } from "./fetchData";
 import { Resizer } from "./Resizer";
 import { usePaginator } from "./usePaginator";
