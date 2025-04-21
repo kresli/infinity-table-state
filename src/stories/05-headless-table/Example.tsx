@@ -11,25 +11,25 @@ const columns: Column<Row>[] = [
   {
     id: "index",
     width: 50,
-    BodyCell: ({ row }) => <div>{row.rowIndex}</div>,
+    BodyCell: ({ recordIndex }) => <div>{recordIndex}</div>,
     HeaderCell: () => <span>Index</span>,
   },
   {
     id: "name",
     width: 100,
-    BodyCell: ({ row }) => <div className="truncate">{row.data.name}</div>,
+    BodyCell: ({ record }) => <div className="truncate">{record.name}</div>,
     HeaderCell: () => <span className="truncate">Name</span>,
   },
   {
     id: "age",
     width: 100,
-    BodyCell: ({ row }) => <div>{row.data.age}</div>,
+    BodyCell: ({ record }) => <div>{record.age}</div>,
     HeaderCell: () => <span>Age</span>,
   },
   {
     id: "email",
     width: "auto",
-    BodyCell: ({ row }) => <span>{row.data.email}</span>,
+    BodyCell: ({ record }) => <span>{record.email}</span>,
     HeaderCell: () => <span>Email</span>,
   },
 ];
@@ -52,6 +52,8 @@ export function Example() {
           totalRows={paginator.totalRecords}
           visibleRows={paginator.visibleRecords}
           onVisibleRowsChange={paginator.onVisibleRecordsChange}
+          rowBuffer={5}
+          rowPixelHeight={40}
         />
       </Resizer>
       <PagesLoadingStatus

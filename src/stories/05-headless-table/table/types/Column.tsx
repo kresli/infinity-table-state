@@ -1,10 +1,8 @@
 import { ReactElement } from "react";
 
 interface RowProps<RowData> {
-  row: {
-    data: RowData;
-    rowIndex: number;
-  };
+  record: RowData;
+  recordIndex: number;
 }
 
 export interface Column<Row> {

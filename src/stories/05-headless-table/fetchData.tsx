@@ -1,6 +1,6 @@
-import { PaginatorData } from "./Example";
 import { getPaginatedData } from "./generate-data";
 import { Row } from "./Row";
+import { PaginatorData } from "./usePaginator";
 
 export function fetchData(page: number, pageSize: number): Promise<PaginatorData<Row>> {
   return new Promise<PaginatorData<Row>>((resolve) => {
