@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "react";
 import { useLiveRef } from "./useLiveRef";
 
-export function useResizeObserver(
+export function useClientRectObserver(
   element: HTMLDivElement | null,
   callback: (clientRect: DOMRectReadOnly) => void
 ) {

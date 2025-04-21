@@ -1,5 +1,11 @@
 import { EffectCallback, useEffect, useState } from "react";
-import { PaginatorData } from "./Example";
+
+export interface PaginatorData<Record> {
+  index: number;
+  pageSize: number;
+  totalRecords: number;
+  records: Record[];
+}
 
 interface PaginatorConfig<Row> {
   fetchPageData: (pageIndex: number, pageSize: number) => Promise<PaginatorData<Row>>;
@@ -14,6 +20,7 @@ export interface UsePaginator<Row> {
   rowsPerPage: number;
   fetchingPageIndexes: Set<number>;
   totalPages: number;
+  visibleRecords: [start: number, end: number];
   onVisibleRecordsChange: (range: [start: number, end: number]) => void;
 }
 
@@ -22,6 +29,7 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
   const [fetchingPageIndexes, setFetchingPageIndexes] = useState(new Set<number>());
   const [totalRecords, setTotalRecords] = useState(config.initialTotalRecords);
   const [rowsPerPage, setRowsPerPage] = useState(config.initialRowsPerPage);
+  const [visibleRecords, setVisibleRecords] = useState<[start: number, end: number]>([0, 0]);
 
   const fetchPage = async (pageIndex: number) => {
     setFetchingPageIndexes((prev) => new Set([...prev, pageIndex]));
@@ -37,6 +45,7 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
   };
 
   const onVisibleRecordsChange = (range: [start: number, end: number]) => {
+    setVisibleRecords(range);
     const [start, end] = range;
     const startPageIndex = Math.floor(start / rowsPerPage);
     const endPageIndex = Math.floor(end / rowsPerPage);
@@ -56,6 +65,7 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
     rowsPerPage,
     fetchingPageIndexes,
     totalPages,
+    visibleRecords,
     onVisibleRecordsChange,
   };
 }

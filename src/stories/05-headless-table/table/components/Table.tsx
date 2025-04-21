@@ -1,4 +1,4 @@
-import { Column } from "./Column";
+import { Column } from "../types/Column";
 import { VirtualList } from "./VirtualList";
 
 interface Props<Row> {
@@ -6,6 +6,7 @@ interface Props<Row> {
   columns: Column<Row>[];
   rowsPerPage: number;
   totalRows: number;
+  visibleRows: [start: number, end: number];
   onVisibleRowsChange: (range: [start: number, end: number]) => void;
 }
 
@@ -30,6 +31,7 @@ export function Table<Row>(props: Props<Row>) {
         totalRows={props.totalRows}
         buffer={5}
         onVisibleRowsChange={props.onVisibleRowsChange}
+        visibleRows={props.visibleRows}
       >
         {(rowIndex) => {
           const data = props.data.at(rowIndex);
