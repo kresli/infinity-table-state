@@ -1,4 +1,4 @@
-import { useVisibleRowsObserver } from "./useVisibleRowsObserver";
+import { getVisibleRows, useVisibleRowsObserver } from "./useVisibleRowsObserver";
 import { Column } from "../types/Column";
 import { useState } from "react";
 
@@ -19,6 +19,7 @@ export interface UseTable<Row> {
   totalRows: number;
   rowPixelHeight: number;
   visibleRows: { record: Row | null; recordIndex: number }[];
+  forceRecalculateVisibleRows: () => void;
   setScrollContainerElement: (element: HTMLDivElement | null) => void;
 }
 
@@ -43,6 +44,16 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     };
   });
 
+  const forceRecalculateRows = () => {
+    return getVisibleRows({
+      buffer: props.rowBuffer,
+      totalRows: props.totalRows,
+      rowPixelHeight: props.rowPixelHeight,
+      scrollTop: scrollContainerElement?.scrollTop || 0,
+      containerHeight: scrollContainerElement?.clientHeight || 0,
+    });
+  };
+
   return {
     columns: props.columns,
     rows: props.data,
@@ -50,5 +61,6 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     rowPixelHeight: props.rowPixelHeight,
     visibleRows,
     setScrollContainerElement,
+    forceRecalculateVisibleRows: forceRecalculateRows,
   };
 }

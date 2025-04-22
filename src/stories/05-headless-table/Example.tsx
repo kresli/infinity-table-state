@@ -6,6 +6,8 @@ import { Column } from "./table/types/Column";
 import { Row } from "./Row";
 import { useTable } from "./table/hooks/useTable";
 import { Table } from "./table";
+import { useOnMount } from "./useOnMount";
+import { useState } from "react";
 
 const columns: Column<Row>[] = [
   {
@@ -35,6 +37,10 @@ const columns: Column<Row>[] = [
 ];
 
 export function Example() {
+  const rowPixelHeight = 40;
+  const rowBuffer = 5;
+  const [visibleRecords, setVisibleRecords] = useState<[start: number, end: number]>([0, 0]);
+
   const paginator = usePaginator<Row>({
     initialPageIndex: 0,
     initialTotalRecords: 0,
@@ -42,15 +48,30 @@ export function Example() {
     fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize),
   });
 
+  const onVisibleRowsChange = (range: [start: number, end: number]) => {
+    setVisibleRecords(range);
+    const [start, end] = range;
+    const startPageIndex = Math.floor(start / paginator.rowsPerPage);
+    const endPageIndex = Math.floor(end / paginator.rowsPerPage);
+    for (let i = startPageIndex; i <= endPageIndex; i++) {
+      paginator.fetchPage(i);
+    }
+  };
+
   const table = useTable({
     columns,
     data: paginator.data,
     rowsPerPage: paginator.rowsPerPage,
     totalRows: paginator.totalRecords,
-    visibleRows: paginator.visibleRecords,
-    rowPixelHeight: 40,
-    rowBuffer: 5,
-    onVisibleRowsChange: paginator.onVisibleRecordsChange,
+    visibleRows: visibleRecords,
+    rowPixelHeight,
+    rowBuffer,
+    onVisibleRowsChange,
+  });
+
+  useOnMount(async () => {
+    await paginator.fetchPage(0);
+    table.forceRecalculateVisibleRows();
   });
 
   return (

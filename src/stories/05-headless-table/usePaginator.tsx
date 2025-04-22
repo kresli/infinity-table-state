@@ -1,4 +1,4 @@
-import { EffectCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 export interface PaginatorData<Record> {
   index: number;
@@ -20,8 +20,7 @@ export interface UsePaginator<Row> {
   rowsPerPage: number;
   fetchingPageIndexes: Set<number>;
   totalPages: number;
-  visibleRecords: [start: number, end: number];
-  onVisibleRecordsChange: (range: [start: number, end: number]) => void;
+  fetchPage: (pageIndex: number) => Promise<PaginatorData<Row>>;
 }
 
 export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Row> {
@@ -29,7 +28,6 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
   const [fetchingPageIndexes, setFetchingPageIndexes] = useState(new Set<number>());
   const [totalRecords, setTotalRecords] = useState(config.initialTotalRecords);
   const [rowsPerPage, setRowsPerPage] = useState(config.initialRowsPerPage);
-  const [visibleRecords, setVisibleRecords] = useState<[start: number, end: number]>([0, 0]);
 
   const fetchPage = async (pageIndex: number) => {
     setFetchingPageIndexes((prev) => new Set([...prev, pageIndex]));
@@ -42,19 +40,8 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
     setTotalRecords(data.totalRecords);
     setRowsPerPage(data.pageSize);
     setFetchingPageIndexes((prev) => new Set([...prev].filter((i) => i !== pageIndex)));
+    return data;
   };
-
-  const onVisibleRecordsChange = (range: [start: number, end: number]) => {
-    setVisibleRecords(range);
-    const [start, end] = range;
-    const startPageIndex = Math.floor(start / rowsPerPage);
-    const endPageIndex = Math.floor(end / rowsPerPage);
-    for (let i = startPageIndex; i <= endPageIndex; i++) {
-      fetchPage(i);
-    }
-  };
-
-  useOnMount(() => void fetchPage(config.initialPageIndex));
 
   const data = pages.flat();
   const totalPages = Math.ceil(totalRecords / rowsPerPage);
@@ -65,12 +52,6 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
     rowsPerPage,
     fetchingPageIndexes,
     totalPages,
-    visibleRecords,
-    onVisibleRecordsChange,
+    fetchPage,
   };
-}
-
-function useOnMount<T extends EffectCallback>(fn: T) {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(fn, []);
 }
