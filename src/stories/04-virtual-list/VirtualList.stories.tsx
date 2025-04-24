@@ -3,7 +3,7 @@ import { useState } from "react";
 import { VirtualListCore } from "./VirtualList";
 
 const meta: Meta<typeof VirtualContainer> = {
-  title: "Components/VirtualList",
+  title: "Components/04-VirtualList",
   component: VirtualContainer,
   parameters: {
     layout: "fullscreen",

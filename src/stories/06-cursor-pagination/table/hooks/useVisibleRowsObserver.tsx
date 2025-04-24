@@ -1,28 +1,6 @@
+import { getVisibleRows } from "../../utils/get-visible-rows";
 import { useClientRectObserver } from "./useClientRectObserver";
 import { useScrollTopObserver } from "./useScrollTopObserver";
-
-export interface GetVisibleRowsProps {
-  totalRows: number;
-  rowPixelHeight: number;
-  containerHeight: number;
-  scrollTop: number;
-  buffer: number;
-}
-
-export function getVisibleRows(
-  props: GetVisibleRowsProps
-): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
-  const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
-
-  const absouluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
-  const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex - buffer);
-  const lastVisibleRowIndex = Math.min(
-    totalRows - 1,
-    absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight) + buffer
-  );
-
-  return [firstVisibleRowIndex, lastVisibleRowIndex];
-}
 
 export function useVisibleRowsObserver(props: {
   element: HTMLDivElement | null;

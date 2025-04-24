@@ -6,8 +6,8 @@ import { Column } from "./table/types/Column";
 import { Row } from "./Row";
 import { useTable } from "./table/hooks/useTable";
 import { Table } from "./table";
+import { PropsWithChildren, RefObject, useRef, useState } from "react";
 import { useOnMount } from "./useOnMount";
-import { useState } from "react";
 
 const columns: Column<Row>[] = [
   {
@@ -40,12 +40,13 @@ export function Example() {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
   const [visibleRecords, setVisibleRecords] = useState<[start: number, end: number]>([0, 0]);
+  const deletedRows = useRef(new Set<number>());
 
   const paginator = usePaginator<Row>({
     initialPageIndex: 0,
     initialTotalRecords: 0,
     initialRowsPerPage: 10,
-    fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize),
+    fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize, deletedRows.current),
   });
 
   const onVisibleRowsChange = (range: [start: number, end: number]) => {
@@ -73,6 +74,10 @@ export function Example() {
 
   return (
     <div className="flex flex-col gap-2">
+      <Toolbar
+        deletedRowsRef={deletedRows}
+        onDeleteRows={() => onVisibleRowsChange(visibleRecords)}
+      />
       <Resizer>
         <Table className="border border-slate-400 rounded">
           <Table.Header state={table}>
@@ -110,5 +115,35 @@ export function Example() {
         fetchingPageIndexes={paginator.fetchingPageIndexes}
       />
     </div>
+  );
+}
+
+function Toolbar(props: { deletedRowsRef: RefObject<Set<number>>; onDeleteRows: () => void }) {
+  return (
+    <div>
+      <Button
+        onClick={() => {
+          const ids = Array.from({ length: 20 }).map((_, i) => i);
+          const max = Math.max(...[...props.deletedRowsRef.current, 0]);
+          for (const id of ids) {
+            props.deletedRowsRef.current.add(max + id);
+          }
+          props.onDeleteRows();
+        }}
+      >
+        Remove 20 above
+      </Button>
+    </div>
+  );
+}
+
+function Button(props: PropsWithChildren<{ onClick: () => void }>) {
+  return (
+    <button
+      onClick={props.onClick}
+      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer active:bg-blue-700"
+    >
+      {props.children}
+    </button>
   );
 }
