@@ -2,7 +2,7 @@ import { test } from "vitest";
 
 type Id = string | number;
 
-interface Props<T> {
+interface Params<T> {
   prevArray: (null | T)[];
   nextArray: (null | T)[];
   cursors: number[];
@@ -29,14 +29,39 @@ const v = (id: number): Item => ({ id });
  * 5. `belowAndWithin` – Change spans below and within the viewport.
  * 6. `surroundingViewport` – Change spans both above and below the viewport, but not inside it.
  */
-function calculateOffsetFromCursor<T>(props: Props<T>): [cursorIndex: number, offset: number] {
-  const prevIdsArray = getCursorsArray(props.cursors, props.prevArray, props.getItemId);
-  const nextIdsArray = getCursorsArray(props.cursors, props.nextArray, props.getItemId);
-  // Check if the cursors are the same
-  if (prevIdsArray.every((id, index) => id === nextIdsArray[index])) return [props.cursors[0], 0];
-  // Check if first matching cursor is the same
-  if (prevIdsArray.some((id, index) => id === nextIdsArray[index])) return [props.cursors[0], 0];
-  return [Infinity, Infinity];
+export function calculateOffsetFromCursor<T>({
+  prevArray,
+  nextArray,
+  cursors,
+  getItemId,
+}: Params<T>): [number, number] {
+  if (cursors.length === 0) return [0, 0];
+
+  // Step 1: Try to find the first valid cursor anchor (non-null item)
+  for (let i = 0; i < cursors.length; i++) {
+    const prevIndex = cursors[i];
+    const prevItem = prevArray[prevIndex];
+
+    if (prevItem == null) continue;
+
+    const id = getItemId(prevItem);
+
+    // Step 2: Look for the same item in the new array
+    const nextIndex = nextArray.findIndex((item) => item != null && getItemId(item) === id);
+
+    if (nextIndex === -1) {
+      // Item is gone, try the next one
+      continue;
+    }
+
+    // Step 3: Calculate offset based on where it moved
+    const offset = nextIndex - prevIndex;
+
+    return [offset, 0];
+  }
+
+  // If no anchor was found (all removed or null), default to no offset
+  return [0, 0];
 }
 
 function getCursorsArray<T>(
