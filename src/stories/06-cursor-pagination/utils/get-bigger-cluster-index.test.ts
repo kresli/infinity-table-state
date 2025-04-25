@@ -5,6 +5,10 @@ interface Cluster<T> {
   segements: T[];
 }
 
+/**
+ * Finds the biggest contiguous matching "cluster" between two arrays.
+ * Returns null if no common subsequence exists.
+ */
 function getBiggerClusterIndex<T>(source: T[], target: T[]): Cluster<T> | null {
   const n = source.length;
   const m = target.length;
@@ -12,11 +16,10 @@ function getBiggerClusterIndex<T>(source: T[], target: T[]): Cluster<T> | null {
   let endSrc = 0;
   let endTgt = 0;
 
-  // dp rows: prev = dp[i-1][*], curr = dp[i][*]
-  const prev = new Array(m + 1).fill(0);
-  const curr = new Array(m + 1).fill(0);
+  // DP rows: prev[j] = length of LCSuffix ending at source[i-1] & target[j-1]
+  const prev: number[] = new Array(m + 1).fill(0);
+  const curr: number[] = new Array(m + 1).fill(0);
 
-  // Build the LCSUBSTR DP table
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       if (source[i - 1] === target[j - 1]) {
@@ -30,15 +33,16 @@ function getBiggerClusterIndex<T>(source: T[], target: T[]): Cluster<T> | null {
         curr[j] = 0;
       }
     }
-
-    // swap rows and zero out the new curr
+    // move curr -> prev, and reset curr
     for (let j = 0; j <= m; j++) {
       prev[j] = curr[j];
       curr[j] = 0;
     }
   }
 
-  if (maxLen === 0) return null;
+  if (maxLen === 0) {
+    return null;
+  }
 
   const startSrc = endSrc - maxLen;
   const startTgt = endTgt - maxLen;
