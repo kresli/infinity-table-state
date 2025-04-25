@@ -5,38 +5,49 @@ interface Cluster<T> {
   segements: T[];
 }
 
-function getBiggerClusterIndex<T>(sourceArray: T[], targetArray: T[]): Cluster<T> | null {
-  let biggest: Cluster<T> | null = null;
+function getBiggerClusterIndex<T>(source: T[], target: T[]): Cluster<T> | null {
+  const n = source.length;
+  const m = target.length;
+  let maxLen = 0;
+  let endSrc = 0;
+  let endTgt = 0;
 
-  for (let i = 0; i < sourceArray.length; i++) {
-    for (let j = 0; j < targetArray.length; j++) {
-      if (sourceArray[i] !== targetArray[j]) continue;
+  // dp rows: prev = dp[i-1][*], curr = dp[i][*]
+  const prev = new Array(m + 1).fill(0);
+  const curr = new Array(m + 1).fill(0);
 
-      // walk forward from this match to build the matching segment until we find a mismatch
-      // this gives us array of matching elements until we find a mismatch
-      const matched: T[] = [];
-      for (let k = 0; i + k < sourceArray.length && j + k < targetArray.length; k++) {
-        if (sourceArray[i + k] !== targetArray[j + k]) break;
-        matched.push(sourceArray[i + k]);
-      }
-
-      // if we have a match, we need to check if this is the biggest one so far
-      if (matched.length > 0) {
-        const cluster: Cluster<T> = {
-          sourceArrayIndex: i,
-          sourceShift: j - i,
-          segements: matched,
-        };
-
-        // if this is the biggest cluster so far, save it
-        if (!biggest || matched.length > biggest.segements.length) {
-          biggest = cluster;
+  // Build the LCSUBSTR DP table
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      if (source[i - 1] === target[j - 1]) {
+        curr[j] = prev[j - 1] + 1;
+        if (curr[j] > maxLen) {
+          maxLen = curr[j];
+          endSrc = i;
+          endTgt = j;
         }
+      } else {
+        curr[j] = 0;
       }
+    }
+
+    // swap rows and zero out the new curr
+    for (let j = 0; j <= m; j++) {
+      prev[j] = curr[j];
+      curr[j] = 0;
     }
   }
 
-  return biggest;
+  if (maxLen === 0) return null;
+
+  const startSrc = endSrc - maxLen;
+  const startTgt = endTgt - maxLen;
+
+  return {
+    sourceArrayIndex: startSrc,
+    sourceShift: startTgt - startSrc,
+    segements: source.slice(startSrc, endSrc),
+  };
 }
 
 test("full change", () => {
