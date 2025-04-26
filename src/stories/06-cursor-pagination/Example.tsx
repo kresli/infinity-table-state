@@ -36,6 +36,16 @@ const columns: Column<Row>[] = [
   },
 ];
 
+function rowsToPageIndexes(
+  range: [start: number, end: number],
+  rowsPerPage: number
+): [start: number, end: number] {
+  const [start, end] = range;
+  const startPageIndex = Math.floor(start / rowsPerPage);
+  const endPageIndex = Math.floor(end / rowsPerPage);
+  return [startPageIndex, endPageIndex];
+}
+
 export function Example() {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
@@ -49,19 +59,20 @@ export function Example() {
     fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize, deletedRows.current),
   });
 
-  const onVisibleRowsChange = (range: [start: number, end: number]) => {
+  const onVisibleRowsChange = async (range: [start: number, end: number]): Promise<Row[]> => {
     setVisibleRecords(range);
-    const [start, end] = range;
-    const startPageIndex = Math.floor(start / paginator.rowsPerPage);
-    const endPageIndex = Math.floor(end / paginator.rowsPerPage);
-    for (let i = startPageIndex; i <= endPageIndex; i++) {
-      paginator.fetchPage(i);
-    }
+    const [startPageIndex, endPageIndex] = rowsToPageIndexes(range, paginator.rowsPerPage);
+    const pages = await Promise.all(
+      Array.from({ length: endPageIndex - startPageIndex + 1 }, (_, i) =>
+        paginator.fetchPage(startPageIndex + i)
+      )
+    );
+    return pages.flatMap((page) => page.records);
   };
 
   const table = useTable({
     columns,
-    data: paginator.data,
+    // data: paginator.data,
     rowsPerPage: paginator.rowsPerPage,
     totalRows: paginator.totalRecords,
     visibleRows: visibleRecords,
@@ -76,7 +87,10 @@ export function Example() {
     <div className="flex flex-col gap-2">
       <Toolbar
         deletedRowsRef={deletedRows}
-        onDeleteRows={() => onVisibleRowsChange(visibleRecords)}
+        onDeleteRows={() => {
+          deletedRows.current.add(deletedRows.current.size);
+          onVisibleRowsChange(visibleRecords);
+        }}
       />
       <Resizer>
         <Table className="border border-slate-400 rounded">
@@ -123,12 +137,14 @@ function Toolbar(props: { deletedRowsRef: RefObject<Set<number>>; onDeleteRows: 
     <div>
       <Button
         onClick={() => {
-          const ids = Array.from({ length: 20 }).map((_, i) => i);
+          const ids = Array.from({ length: 1 }).map((_, i) => i);
           const max = Math.max(...[...props.deletedRowsRef.current, 0]);
           for (const id of ids) {
+            // console.log("deletedRows", max + id);
             props.deletedRowsRef.current.add(max + id);
           }
-          props.onDeleteRows();
+          console.log("deletedRows", props.deletedRowsRef.current);
+          props.onDeleteRows(ids);
         }}
       >
         Remove 20 above
