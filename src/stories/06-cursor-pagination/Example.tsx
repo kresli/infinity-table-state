@@ -6,8 +6,7 @@ import { Column } from "./table/types/Column";
 import { Row } from "./Row";
 import { useTable } from "./table/hooks/useTable";
 import { Table } from "./table";
-import { PropsWithChildren, RefObject, useRef, useState } from "react";
-import { useOnMount } from "./useOnMount";
+import { useRef } from "react";
 
 const columns: Column<Row>[] = [
   {
@@ -36,20 +35,9 @@ const columns: Column<Row>[] = [
   },
 ];
 
-function rowsToPageIndexes(
-  range: [start: number, end: number],
-  rowsPerPage: number
-): [start: number, end: number] {
-  const [start, end] = range;
-  const startPageIndex = Math.floor(start / rowsPerPage);
-  const endPageIndex = Math.floor(end / rowsPerPage);
-  return [startPageIndex, endPageIndex];
-}
-
 export function Example() {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
-  const [visibleRecords, setVisibleRecords] = useState<[start: number, end: number]>([0, 0]);
   const deletedRows = useRef(new Set<number>());
 
   const paginator = usePaginator<Row>({
@@ -59,39 +47,36 @@ export function Example() {
     fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize, deletedRows.current),
   });
 
-  const onVisibleRowsChange = async (range: [start: number, end: number]): Promise<Row[]> => {
-    setVisibleRecords(range);
-    const [startPageIndex, endPageIndex] = rowsToPageIndexes(range, paginator.rowsPerPage);
-    const pages = await Promise.all(
-      Array.from({ length: endPageIndex - startPageIndex + 1 }, (_, i) =>
-        paginator.fetchPage(startPageIndex + i)
-      )
-    );
-    return pages.flatMap((page) => page.records);
-  };
-
-  const table = useTable({
+  const table = useTable<Row>({
     columns,
-    // data: paginator.data,
-    rowsPerPage: paginator.rowsPerPage,
-    totalRows: paginator.totalRecords,
-    visibleRows: visibleRecords,
     rowPixelHeight,
     rowBuffer,
-    onVisibleRowsChange,
+    getItemId: (item) => item.id,
+    onFetchPages: async (pageIndexes) => {
+      console.log("pageIndexes", pageIndexes);
+      const pages = await Promise.all(
+        pageIndexes.map((pageIndex) => paginator.fetchPage(pageIndex))
+      );
+      return pages.map((page) => ({
+        pageIndex: page.index,
+        pageSize: page.pageSize,
+        totalRecords: page.totalRecords,
+        records: page.records,
+      }));
+    },
   });
 
-  useOnMount(() => onVisibleRowsChange([0, 1]));
+  // useOnMount(() => table.refetchVisibleRows());
 
   return (
     <div className="flex flex-col gap-2">
-      <Toolbar
+      {/* <Toolbar
         deletedRowsRef={deletedRows}
         onDeleteRows={() => {
           deletedRows.current.add(deletedRows.current.size);
-          onVisibleRowsChange(visibleRecords);
+          table.refetchVisibleRows();
         }}
-      />
+      /> */}
       <Resizer>
         <Table className="border border-slate-400 rounded">
           <Table.Header state={table}>
@@ -132,34 +117,34 @@ export function Example() {
   );
 }
 
-function Toolbar(props: { deletedRowsRef: RefObject<Set<number>>; onDeleteRows: () => void }) {
-  return (
-    <div>
-      <Button
-        onClick={() => {
-          const ids = Array.from({ length: 1 }).map((_, i) => i);
-          const max = Math.max(...[...props.deletedRowsRef.current, 0]);
-          for (const id of ids) {
-            // console.log("deletedRows", max + id);
-            props.deletedRowsRef.current.add(max + id);
-          }
-          console.log("deletedRows", props.deletedRowsRef.current);
-          props.onDeleteRows(ids);
-        }}
-      >
-        Remove 20 above
-      </Button>
-    </div>
-  );
-}
+// function Toolbar(props: { deletedRowsRef: RefObject<Set<number>>; onDeleteRows: () => void }) {
+//   return (
+//     <div>
+//       <Button
+//         onClick={() => {
+//           // const ids = Array.from({ length: 1 }).map((_, i) => i);
+//           // const max = Math.max(...[...props.deletedRowsRef.current, 0]);
+//           // for (const id of ids) {
+//           //   // console.log("deletedRows", max + id);
+//           //   props.deletedRowsRef.current.add(max + id);
+//           // }
+//           // console.log("deletedRows", props.deletedRowsRef.current);
+//           // props.onDeleteRows(ids);
+//         }}
+//       >
+//         Remove 20 above
+//       </Button>
+//     </div>
+//   );
+// }
 
-function Button(props: PropsWithChildren<{ onClick: () => void }>) {
-  return (
-    <button
-      onClick={props.onClick}
-      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer active:bg-blue-700"
-    >
-      {props.children}
-    </button>
-  );
-}
+// function Button(props: PropsWithChildren<{ onClick: () => void }>) {
+//   return (
+//     <button
+//       onClick={props.onClick}
+//       className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer active:bg-blue-700"
+//     >
+//       {props.children}
+//     </button>
+//   );
+// }
