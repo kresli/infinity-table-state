@@ -11,7 +11,7 @@ interface PaginatorData<Record> {
 export function fetchData(
   page: number,
   pageSize: number,
-  deletedRows: Set<number>
+  deletedRows: Set<string | number>
 ): Promise<PaginatorData<Row>> {
   return new Promise<PaginatorData<Row>>((resolve) => {
     const randomDelay = Math.floor(Math.random() * 1000) + 500; // Random delay between 500ms and 1500ms

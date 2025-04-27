@@ -30,6 +30,7 @@ export interface UseTable<Row> {
   rowPixelHeight: number;
   visibleRows: { record: Row | null; recordIndex: number }[];
   setScrollContainerElement: (element: HTMLDivElement | null) => void;
+  refechVisibleRows: () => Promise<void>;
 }
 
 function rangeToPagesIndexes(params: {
@@ -50,9 +51,9 @@ function rangeToPagesIndexes(params: {
 }
 
 function usePaginator<Row>(onFetchPage: UseTableProps<Row>["onFetchPages"]) {
-  const [pages, setPages] = useState<PageResponse<Row>[]>([]);
+  const [pages, setPages] = useState<(PageResponse<Row> | undefined)[]>([]);
   const [totalRows, setTotalRows] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetchPagesByRange = async ([start, end]: Range) => {
     const pagesIndexes = rangeToPagesIndexes({
@@ -63,7 +64,13 @@ function usePaginator<Row>(onFetchPage: UseTableProps<Row>["onFetchPages"]) {
     });
     const pages = await onFetchPage(pagesIndexes, rowsPerPage);
     if (pages.length === 0) return;
-    setPages((prev) => [...prev, ...pages]);
+    setPages((prev) => {
+      const newPages = [...prev];
+      for (const page of pages) {
+        newPages[page.pageIndex] = page;
+      }
+      return newPages;
+    });
     setTotalRows(pages[0].totalRecords);
     setRowsPerPage(pages[0].pageSize);
   };
@@ -72,7 +79,7 @@ function usePaginator<Row>(onFetchPage: UseTableProps<Row>["onFetchPages"]) {
     return fetchPagesByRange([pageIndex * rowsPerPage, pageIndex * rowsPerPage + rowsPerPage - 1]);
   };
 
-  const data = pages.flatMap((page) => page.records);
+  const data = pages.flatMap((page) => page?.records || []);
 
   return { pages, totalRows, rowsPerPage, data, fetchPage, fetchPagesByRange };
 }
@@ -87,6 +94,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     setVisibleRange(range);
     paginator.fetchPagesByRange(range);
   };
+
   useVisibleRowsObserver({
     element: scrollContainerElement,
     buffer: props.rowBuffer,
@@ -100,13 +108,14 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const visibleRows = Array.from({ length: visibleRowsCount }, (_, index) => {
     const recordIndex = index + visibleRange[0];
     const record = paginator.data.at(recordIndex) || null;
-    return {
-      record,
-      recordIndex,
-    };
+    return { record, recordIndex };
   });
 
   const paginatorRef = useLiveRef(paginator);
+
+  const refechVisibleRows = async () => {
+    await paginatorRef.current.fetchPagesByRange(visibleRange);
+  };
 
   useOnMount(() => paginatorRef.current.fetchPage(0));
 
@@ -117,6 +126,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     rowPixelHeight: props.rowPixelHeight,
     visibleRows,
     setScrollContainerElement,
+    refechVisibleRows,
   };
 }
 
