@@ -19,7 +19,7 @@ export interface UseTableProps<Row> {
   columns: Column<Row>[];
   rowPixelHeight: number;
   rowBuffer: number;
-  onFetchPages: (pageIndexes: number[]) => Promise<PageResponse<Row>[]>;
+  onFetchPages: (pageIndexes: number[], pageSize: number) => Promise<PageResponse<Row>[]>;
   getItemId: (item: Row) => Id;
 }
 
@@ -38,28 +38,21 @@ function rangeToPagesIndexes(params: {
   totalRows: number;
   rowsPerPage: number;
 }) {
+  if (params.totalRows === 0) return [params.start];
   const { start, end, totalRows, rowsPerPage } = params;
-  const pagesIndexes = new Set<number>();
-  for (let i = start; i <= end; i++) {
-    const pageIndex = Math.floor(i / rowsPerPage);
-    if (pageIndex < totalRows) {
-      pagesIndexes.add(pageIndex);
-    }
+  const result: number[] = [];
+  const currentPage = Math.floor(start / rowsPerPage);
+  const lastPage = Math.floor(end / rowsPerPage);
+  for (let page = currentPage; page <= lastPage; page++) {
+    if (page < totalRows) result.push(page);
   }
-  return Array.from(pagesIndexes);
+  return result;
 }
 
 function usePaginator<Row>(onFetchPage: UseTableProps<Row>["onFetchPages"]) {
   const [pages, setPages] = useState<PageResponse<Row>[]>([]);
   const [totalRows, setTotalRows] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(0);
-
-  const fetchPage = async (pageIndex: number) => {
-    const page = await onFetchPage([pageIndex]);
-    setPages((prev) => [...prev, ...page]);
-    setTotalRows(page[0].totalRecords);
-    setRowsPerPage(page[0].pageSize);
-  };
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   const fetchPagesByRange = async ([start, end]: Range) => {
     const pagesIndexes = rangeToPagesIndexes({
@@ -68,11 +61,15 @@ function usePaginator<Row>(onFetchPage: UseTableProps<Row>["onFetchPages"]) {
       totalRows,
       rowsPerPage,
     });
-    const pages = await onFetchPage(pagesIndexes);
+    const pages = await onFetchPage(pagesIndexes, rowsPerPage);
     if (pages.length === 0) return;
     setPages((prev) => [...prev, ...pages]);
     setTotalRows(pages[0].totalRecords);
     setRowsPerPage(pages[0].pageSize);
+  };
+
+  const fetchPage = async (pageIndex: number) => {
+    return fetchPagesByRange([pageIndex * rowsPerPage, pageIndex * rowsPerPage + rowsPerPage - 1]);
   };
 
   const data = pages.flatMap((page) => page.records);
@@ -134,7 +131,6 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
 //     nextArray: nextVisibleData,
 //     getItemId: (item) => item.name,
 //   });
-//   console.log("commonSubarray", commonSubarray);
 //   scrollContainerElement.scrollTop =
 //     scrollContainerElement.scrollTop + (commonSubarray?.offset || 0) * props.rowPixelHeight;
 //   // props.onVisibleRowsChange([
@@ -144,7 +140,6 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
 // }, [prevData, props.data, props.rowPixelHeight, props.visibleRows, scrollContainerElement]);
 
 // onVisibleRowsChange: async (range) => {
-//   console.log("onVisibleRowsChange", range);
 //   if (scrollContainerElement === null) return;
 //   const prevVisibleData = Array.from(
 //     { length: props.visibleRows[1] - props.visibleRows[0] + 1 },
@@ -155,7 +150,6 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
 //     }
 //   );
 //   const allData = await props.onVisibleRowsChange(range);
-//   console.log("allData", allData);
 //   const nextVisibleData = Array.from({ length: range[1] - range[0] + 1 }, (_, index) => {
 //     const recordIndex = index + range[0];
 //     const record = allData.at(recordIndex) || null;

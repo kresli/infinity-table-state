@@ -1,6 +1,12 @@
 import { getPaginatedData } from "./generate-data";
 import { Row } from "./Row";
-import { PaginatorData } from "./usePaginator";
+
+interface PaginatorData<Record> {
+  index: number;
+  pageSize: number;
+  totalRecords: number;
+  records: Record[];
+}
 
 export function fetchData(
   page: number,

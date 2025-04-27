@@ -1,12 +1,11 @@
 import { fetchData } from "./fetchData";
 import { Resizer } from "./Resizer";
-import { usePaginator } from "./usePaginator";
 import { PagesLoadingStatus } from "./PagesLoadingStatus";
 import { Column } from "./table/types/Column";
 import { Row } from "./Row";
 import { useTable } from "./table/hooks/useTable";
 import { Table } from "./table";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 const columns: Column<Row>[] = [
   {
@@ -39,24 +38,23 @@ export function Example() {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
   const deletedRows = useRef(new Set<number>());
-
-  const paginator = usePaginator<Row>({
-    initialPageIndex: 0,
-    initialTotalRecords: 0,
-    initialRowsPerPage: 10,
-    fetchPageData: (pageIndex, pageSize) => fetchData(pageIndex, pageSize, deletedRows.current),
-  });
+  const [fetchingPageIndexes, setFetchingPageIndexes] = useState(new Set<number>());
 
   const table = useTable<Row>({
     columns,
     rowPixelHeight,
     rowBuffer,
     getItemId: (item) => item.id,
-    onFetchPages: async (pageIndexes) => {
-      console.log("pageIndexes", pageIndexes);
+    onFetchPages: async (pageIndexes, pageSize) => {
+      setFetchingPageIndexes((prev) => new Set([...prev, ...pageIndexes]));
       const pages = await Promise.all(
-        pageIndexes.map((pageIndex) => paginator.fetchPage(pageIndex))
+        pageIndexes.map((pageIndex) => fetchData(pageIndex, pageSize, deletedRows.current))
       );
+      setFetchingPageIndexes((prev) => {
+        const newSet = new Set(prev);
+        pageIndexes.forEach((pageIndex) => newSet.delete(pageIndex));
+        return newSet;
+      });
       return pages.map((page) => ({
         pageIndex: page.index,
         pageSize: page.pageSize,
@@ -109,10 +107,7 @@ export function Example() {
           </Table.Body>
         </Table>
       </Resizer>
-      <PagesLoadingStatus
-        totalPages={paginator.totalPages}
-        fetchingPageIndexes={paginator.fetchingPageIndexes}
-      />
+      <PagesLoadingStatus totalPages={table.totalRows} fetchingPageIndexes={fetchingPageIndexes} />
     </div>
   );
 }
