@@ -1,11 +1,9 @@
 import { useRef, useState } from "react";
 import { AcmeTable } from "./AcmeTable";
 
-type Id = string | number;
-
 export function Example() {
   const [hoveredRowId, setHoveredRowId] = useState<string | number | null>(null);
-  const deletedRows = useRef(new Set<Id>());
+  const deletedRowsIndexes = useRef(new Set<number>());
 
   const onRowHover = (id: number | string, hover: boolean) => {
     setHoveredRowId((hoveredRowId) => {
@@ -22,14 +20,14 @@ export function Example() {
           <AcmeTable
             onRowHover={onRowHover}
             hoveredRowId={hoveredRowId}
-            deletedRowsRef={deletedRows}
+            deletedRowsIndexesRef={deletedRowsIndexes}
           />
         </div>
         <div className="flex-1 overflow-hidden">
           <AcmeTable
             onRowHover={onRowHover}
             hoveredRowId={hoveredRowId}
-            deletedRowsRef={deletedRows}
+            deletedRowsIndexesRef={deletedRowsIndexes}
           />
         </div>
       </div>

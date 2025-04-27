@@ -1,8 +1,6 @@
 import { faker as globalFaker } from "@faker-js/faker";
 import seedrandom from "seedrandom";
-import type { Row } from "./Row";
-
-type Id = string | number;
+import type { Row } from "../Row";
 
 const BASE_SEED = "my-seed";
 
@@ -22,13 +20,13 @@ function generateRow(index: number): Row {
   };
 }
 
-export function getPaginatedData(page: number, pageSize: number, removedRows: Set<Id>): Row[] {
-  const start = page * pageSize;
+export function getPaginatedData(page: number, pageSize: number, removedRows: Set<number>): Row[] {
+  const deltedOffset = [...removedRows].filter((index) => index < page * pageSize).length;
+  const start = page * pageSize + deltedOffset;
   const result: Row[] = [];
   for (let i = start; i < start + pageSize + removedRows.size; i++) {
-    const row = generateRow(i);
-    if (removedRows.has(row.id)) continue;
-    result.push(row);
+    if (removedRows.has(i)) continue;
+    result.push(generateRow(i));
     if (result.length >= pageSize) break;
   }
   return result;

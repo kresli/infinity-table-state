@@ -1,10 +1,10 @@
 import { useVisibleRowsObserver } from "./useVisibleRowsObserver";
 import { Column } from "../types/Column";
 import { useState } from "react";
-import { useLiveRef } from "./useLiveRef";
 import { useOnMount } from "../../useOnMount";
 import { PageResponse, usePaginator } from "./PageResponse";
 import { Range } from "../types/Range";
+import { calculateOffsetFromCursor } from "../../utils/calculate-offset-from-cursor";
 
 type Id = string | number;
 
@@ -26,6 +26,21 @@ export interface UseTable<Row> {
   refechVisibleRows: () => Promise<void>;
 }
 
+function getVisibleRowsFromPages<Row>(
+  pages: (PageResponse<Row> | undefined)[],
+  visibleRange: Range
+): (Row | null)[] {
+  const visibleRowsCount = visibleRange[1] - visibleRange[0] + 1;
+  return Array.from({ length: visibleRowsCount }, (_, index) => {
+    const pageSize = pages[0]?.pageSize || 0;
+    const recordIndex = index + visibleRange[0];
+    const pageIndex = Math.floor(recordIndex / pageSize);
+    const pageOffset = recordIndex % pageSize;
+    const page = pages[pageIndex];
+    return page?.records.at(pageOffset) || null;
+  });
+}
+
 export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
   const [visibleRange, setVisibleRange] = useState<Range>([0, 0]);
@@ -34,7 +49,15 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const onVisibleRowsChange = async (range: Range) => {
     if (range[0] === visibleRange[0] && range[1] === visibleRange[1]) return;
     setVisibleRange(range);
-    paginator.fetchPagesByRange(range);
+    // const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, range);
+    const newPages = await paginator.fetchPagesByRange(range);
+    // const nextVisibleRows = getVisibleRowsFromPages(newPages, range);
+    // const commonSubarray = calculateOffsetFromCursor({
+    //   prevArray: prevVisibleRows,
+    //   nextArray: nextVisibleRows,
+    //   getItemId: props.getItemId,
+    // });
+    // console.log("commonSubarray", commonSubarray);
   };
 
   useVisibleRowsObserver({
@@ -42,7 +65,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     buffer: props.rowBuffer,
     totalRows: paginator.totalRows,
     rowPixelHeight: props.rowPixelHeight,
-    onVisibleRowsChange: onVisibleRowsChange,
+    onVisibleRowsChange,
   });
 
   const visibleRowsCount = visibleRange[1] - visibleRange[0] + 1;
@@ -53,13 +76,20 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     return { record, recordIndex };
   });
 
-  const paginatorRef = useLiveRef(paginator);
-
   const refechVisibleRows = async () => {
-    await paginatorRef.current.fetchPagesByRange(visibleRange);
+    await paginator.fetchPagesByRange(visibleRange);
+    const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, visibleRange);
+    const newPages = await paginator.fetchPagesByRange(visibleRange);
+    const nextVisibleRows = getVisibleRowsFromPages(newPages, visibleRange);
+    const commonSubarray = calculateOffsetFromCursor({
+      prevArray: prevVisibleRows,
+      nextArray: nextVisibleRows,
+      getItemId: props.getItemId,
+    });
+    console.log("commonSubarray", commonSubarray);
   };
 
-  useOnMount(() => paginatorRef.current.fetchPage(0));
+  useOnMount(() => paginator.fetchPage(0));
 
   return {
     columns: props.columns,

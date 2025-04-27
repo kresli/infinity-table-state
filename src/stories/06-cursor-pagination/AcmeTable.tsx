@@ -30,7 +30,7 @@ const columns: Column<Row>[] = [
   {
     id: "email",
     width: "auto",
-    BodyCell: ({ record }) => <span>{record.email}</span>,
+    BodyCell: ({ record }) => <div className="text-nowrap">{record.email}</div>,
     HeaderCell: () => <span>Email</span>,
   },
 ];
@@ -39,72 +39,82 @@ type Id = string | number;
 
 interface AcmeTableProps {
   hoveredRowId: Id | null;
-  deletedRowsRef: React.RefObject<Set<Id>>;
+  deletedRowsIndexesRef: React.RefObject<Set<number>>;
   onRowHover: (id: number | string, hover: boolean) => void;
+}
+
+function getItemId(row: Row) {
+  return row.id;
 }
 
 export function AcmeTable(props: AcmeTableProps) {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
   const [fetchingPageIndexes, setFetchingPageIndexes] = useState(new Set<number>());
-  const [selectedRowsIds, setSelectedRowsIds] = useState(new Set<Id>());
+  const [selectedRowsIndexes, setSelectedRowsIndexes] = useState(new Set<number>());
+
+  const onFetchPages = async (pageIndexes: number[], pageSize: number) => {
+    setFetchingPageIndexes((prev) => new Set([...prev, ...pageIndexes]));
+    const pages = await Promise.all(
+      pageIndexes.map((pageIndex) =>
+        fetchData(pageIndex, pageSize, props.deletedRowsIndexesRef.current)
+      )
+    );
+    setFetchingPageIndexes((prev) => {
+      const newSet = new Set(prev);
+      pageIndexes.forEach((pageIndex) => newSet.delete(pageIndex));
+      return newSet;
+    });
+    return pages.map((page) => ({
+      pageIndex: page.index,
+      pageSize: page.pageSize,
+      totalRecords: page.totalRecords,
+      records: page.records,
+    }));
+  };
 
   const table = useTable<Row>({
     columns,
     rowPixelHeight,
     rowBuffer,
-    getItemId: (item) => item.id,
-    onFetchPages: async (pageIndexes, pageSize) => {
-      setFetchingPageIndexes((prev) => new Set([...prev, ...pageIndexes]));
-      const pages = await Promise.all(
-        pageIndexes.map((pageIndex) => fetchData(pageIndex, pageSize, props.deletedRowsRef.current))
-      );
-      setFetchingPageIndexes((prev) => {
-        const newSet = new Set(prev);
-        pageIndexes.forEach((pageIndex) => newSet.delete(pageIndex));
-        return newSet;
-      });
-      return pages.map((page) => ({
-        pageIndex: page.index,
-        pageSize: page.pageSize,
-        totalRecords: page.totalRecords,
-        records: page.records,
-      }));
-    },
+    getItemId,
+    onFetchPages,
   });
 
-  const onToggleSelectedRow = (rowId: Id) => {
-    console.log("onToggleSelectedROw", rowId);
-    setSelectedRowsIds((prev) => {
+  const onToggleSelectedRow = (rowIndex: number) => {
+    console.log("onToggleSelectedROw", rowIndex);
+    setSelectedRowsIndexes((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(rowId)) {
-        newSet.delete(rowId);
+      if (newSet.has(rowIndex)) {
+        newSet.delete(rowIndex);
       } else {
-        newSet.add(rowId);
+        newSet.add(rowIndex);
       }
       return newSet;
     });
+  };
+
+  const onDeleteSelectedRows = () => {
+    props.deletedRowsIndexesRef.current = new Set([
+      ...props.deletedRowsIndexesRef.current,
+      ...selectedRowsIndexes,
+    ]);
+    setSelectedRowsIndexes(new Set());
+    return table.refechVisibleRows();
   };
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
         <Button
-          onClick={() => {
-            props.deletedRowsRef.current = new Set([
-              ...props.deletedRowsRef.current,
-              ...selectedRowsIds,
-            ]);
-            setSelectedRowsIds(new Set());
-            return table.refechVisibleRows();
-          }}
-          disabled={selectedRowsIds.size === 0}
+          onClick={onDeleteSelectedRows}
+          disabled={selectedRowsIndexes.size === 0}
           label="Delete selected"
         />
-        <Button onClick={() => table.refechVisibleRows()} label="Refresh" />
+        <Button onClick={table.refechVisibleRows} label="Refresh" />
       </div>
       <Resizer>
-        <Table className="border border-slate-400 rounded">
+        <Table className="border border-slate-400 rounded overflow-hidden">
           <Table.Header state={table}>
             {(column) => (
               <Table.HeaderCell
@@ -120,7 +130,6 @@ export function AcmeTable(props: AcmeTableProps) {
             {(row, rowIndex) => (
               <Table.BodyRow
                 key={rowIndex}
-                id={`${row?.id}.${rowIndex}`}
                 state={table}
                 row={row}
                 rowIndex={rowIndex}
@@ -128,11 +137,11 @@ export function AcmeTable(props: AcmeTableProps) {
                   "outline outline-gray-300 not-last-of-type:border-b border-slate-300 items-center cursor-pointer",
                   row?.id === props.hoveredRowId && "bg-green-200/50",
                   row?.id !== props.hoveredRowId && "bg-green-200/20",
-                  row && selectedRowsIds.has(row.id) && "bg-blue-200/50!"
+                  row && selectedRowsIndexes.has(rowIndex) && "bg-blue-200/50!"
                 )}
                 onMouseOver={() => row && props.onRowHover(row.id, true)}
                 onMouseLeave={() => row && props.onRowHover(row.id, false)}
-                onClick={() => row && onToggleSelectedRow(row.id)}
+                onClick={() => row && onToggleSelectedRow(rowIndex)}
               >
                 {(column) => (
                   <Table.RowCell className="p-1 px-2" key={column.id} column={column}>
