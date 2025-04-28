@@ -50,7 +50,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     if (range[0] === visibleRange[0] && range[1] === visibleRange[1]) return;
     setVisibleRange(range);
     // const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, range);
-    const newPages = await paginator.fetchPagesByRange(range);
+    await paginator.fetchPagesByRange(range);
     // const nextVisibleRows = getVisibleRowsFromPages(newPages, range);
     // const commonSubarray = calculateOffsetFromCursor({
     //   prevArray: prevVisibleRows,
@@ -77,16 +77,18 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   });
 
   const refechVisibleRows = async () => {
-    await paginator.fetchPagesByRange(visibleRange);
     const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, visibleRange);
-    const newPages = await paginator.fetchPagesByRange(visibleRange);
-    const nextVisibleRows = getVisibleRowsFromPages(newPages, visibleRange);
-    const commonSubarray = calculateOffsetFromCursor({
-      prevArray: prevVisibleRows,
-      nextArray: nextVisibleRows,
-      getItemId: props.getItemId,
+    await paginator.fetchPagesByRange(visibleRange, (pages) => {
+      const nextVisibleRows = getVisibleRowsFromPages(pages, visibleRange);
+      const commonSubarray = calculateOffsetFromCursor({
+        prevArray: prevVisibleRows,
+        nextArray: nextVisibleRows,
+        getItemId: props.getItemId,
+      });
+      scrollContainerElement!.scrollTop =
+        scrollContainerElement!.scrollTop + (commonSubarray?.offset || 0) * props.rowPixelHeight;
+      console.log("commonSubarray", commonSubarray);
     });
-    console.log("commonSubarray", commonSubarray);
   };
 
   useOnMount(() => paginator.fetchPage(0));

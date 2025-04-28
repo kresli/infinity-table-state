@@ -1,4 +1,3 @@
-import { fetchData } from "./fetchData";
 import { Resizer } from "./Resizer";
 import { PagesLoadingStatus } from "./PagesLoadingStatus";
 import { Column } from "./table/types/Column";
@@ -7,6 +6,7 @@ import { useTable } from "./table/hooks/useTable";
 import { Table } from "./table";
 import { PropsWithChildren, useState } from "react";
 import clsx from "clsx";
+import { apiDeleteRecord, apiGetPage } from "./utils/fake-server";
 
 const columns: Column<Row>[] = [
   {
@@ -39,7 +39,6 @@ type Id = string | number;
 
 interface AcmeTableProps {
   hoveredRowId: Id | null;
-  deletedRowsIndexesRef: React.RefObject<Set<number>>;
   onRowHover: (id: number | string, hover: boolean) => void;
 }
 
@@ -51,14 +50,12 @@ export function AcmeTable(props: AcmeTableProps) {
   const rowPixelHeight = 40;
   const rowBuffer = 5;
   const [fetchingPageIndexes, setFetchingPageIndexes] = useState(new Set<number>());
-  const [selectedRowsIndexes, setSelectedRowsIndexes] = useState(new Set<number>());
+  const [selectedRowsIds, setSelectedRowsIds] = useState(new Set<string>());
 
   const onFetchPages = async (pageIndexes: number[], pageSize: number) => {
     setFetchingPageIndexes((prev) => new Set([...prev, ...pageIndexes]));
     const pages = await Promise.all(
-      pageIndexes.map((pageIndex) =>
-        fetchData(pageIndex, pageSize, props.deletedRowsIndexesRef.current)
-      )
+      pageIndexes.map((pageIndex) => apiGetPage(pageIndex, pageSize))
     );
     setFetchingPageIndexes((prev) => {
       const newSet = new Set(prev);
@@ -66,7 +63,7 @@ export function AcmeTable(props: AcmeTableProps) {
       return newSet;
     });
     return pages.map((page) => ({
-      pageIndex: page.index,
+      pageIndex: page.pageIndex,
       pageSize: page.pageSize,
       totalRecords: page.totalRecords,
       records: page.records,
@@ -81,9 +78,9 @@ export function AcmeTable(props: AcmeTableProps) {
     onFetchPages,
   });
 
-  const onToggleSelectedRow = (rowIndex: number) => {
+  const onToggleSelectedRow = (rowIndex: string) => {
     console.log("onToggleSelectedROw", rowIndex);
-    setSelectedRowsIndexes((prev) => {
+    setSelectedRowsIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(rowIndex)) {
         newSet.delete(rowIndex);
@@ -94,12 +91,10 @@ export function AcmeTable(props: AcmeTableProps) {
     });
   };
 
-  const onDeleteSelectedRows = () => {
-    props.deletedRowsIndexesRef.current = new Set([
-      ...props.deletedRowsIndexesRef.current,
-      ...selectedRowsIndexes,
-    ]);
-    setSelectedRowsIndexes(new Set());
+  const onDeleteSelectedRows = async () => {
+    const rowsToDelete = Array.from(selectedRowsIds);
+    await Promise.all(rowsToDelete.map((rowIndex) => apiDeleteRecord(rowIndex)));
+    setSelectedRowsIds(new Set());
     return table.refechVisibleRows();
   };
 
@@ -108,7 +103,7 @@ export function AcmeTable(props: AcmeTableProps) {
       <div className="flex gap-2">
         <Button
           onClick={onDeleteSelectedRows}
-          disabled={selectedRowsIndexes.size === 0}
+          disabled={selectedRowsIds.size === 0}
           label="Delete selected"
         />
         <Button onClick={table.refechVisibleRows} label="Refresh" />
@@ -137,11 +132,11 @@ export function AcmeTable(props: AcmeTableProps) {
                   "outline outline-gray-300 not-last-of-type:border-b border-slate-300 items-center cursor-pointer",
                   row?.id === props.hoveredRowId && "bg-green-200/50",
                   row?.id !== props.hoveredRowId && "bg-green-200/20",
-                  row && selectedRowsIndexes.has(rowIndex) && "bg-blue-200/50!"
+                  row && selectedRowsIds.has(row.id) && "bg-blue-200/50!"
                 )}
                 onMouseOver={() => row && props.onRowHover(row.id, true)}
                 onMouseLeave={() => row && props.onRowHover(row.id, false)}
-                onClick={() => row && onToggleSelectedRow(rowIndex)}
+                onClick={() => row && onToggleSelectedRow(row.id)}
               >
                 {(column) => (
                   <Table.RowCell className="p-1 px-2" key={column.id} column={column}>

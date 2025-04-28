@@ -15,7 +15,10 @@ export function usePaginator<Row>(onFetchPage: OnFetchPage<Row>) {
   const [totalRows, setTotalRows] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const fetchPagesByRange = async ([start, end]: Range) => {
+  const fetchPagesByRange = async (
+    [start, end]: Range,
+    beforeApplyingData?: (pages: PageResponse<Row>[]) => void
+  ) => {
     const pagesIndexes = rangeToPagesIndexes({
       start,
       end,
@@ -23,6 +26,7 @@ export function usePaginator<Row>(onFetchPage: OnFetchPage<Row>) {
       rowsPerPage,
     });
     const pages = await onFetchPage(pagesIndexes, rowsPerPage);
+    beforeApplyingData?.(pages);
     setPages((prev) => {
       const newPages = [...prev];
       for (const page of pages) {

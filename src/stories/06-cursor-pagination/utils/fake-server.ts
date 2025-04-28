@@ -1,33 +1,66 @@
-import { faker as globalFaker } from "@faker-js/faker";
-import seedrandom from "seedrandom";
-import type { Row } from "../Row";
+import { faker } from "@faker-js/faker";
 
-const BASE_SEED = "my-seed";
+type Id = string;
 
-function generateRow(index: number): Row {
-  const rng = seedrandom(`${BASE_SEED}-${index}`);
+export type Entry = {
+  id: Id;
+  name: string;
+  age: number;
+  email: string;
+};
 
-  globalFaker.seed(rng.int32());
-
-  const firstName = globalFaker.person.firstName();
-  const lastName = globalFaker.person.lastName();
-
-  return {
-    id: globalFaker.string.uuid(),
-    name: `${firstName} ${lastName}`,
-    age: globalFaker.number.int({ min: 18, max: 65 }),
-    email: globalFaker.internet.email({ firstName, lastName }).toLowerCase(),
-  };
+interface PageResponse {
+  pageIndex: number;
+  pageSize: number;
+  totalRecords: number;
+  records: Entry[];
 }
 
-export function getPaginatedData(page: number, pageSize: number, removedRows: Set<number>): Row[] {
-  const deltedOffset = [...removedRows].filter((index) => index < page * pageSize).length;
-  const start = page * pageSize + deltedOffset;
-  const result: Row[] = [];
-  for (let i = start; i < start + pageSize + removedRows.size; i++) {
-    if (removedRows.has(i)) continue;
-    result.push(generateRow(i));
-    if (result.length >= pageSize) break;
-  }
-  return result;
+const TOTAL_ROWS = 1_000;
+
+faker.seed(2);
+
+const entriesMap = new Map<Id, Entry>();
+
+for (let i = 0; i < TOTAL_ROWS; i++) {
+  const entry = {
+    id: faker.string.uuid(),
+    name: faker.person.fullName(),
+    age: faker.number.int({ min: 18, max: 65 }),
+    email: faker.internet.email().toLowerCase(),
+  };
+  entriesMap.set(entry.id, entry);
+}
+
+export async function apiGetPage(page: number, pageSize: number): Promise<PageResponse> {
+  const timeout = randomNumber(500, 1000);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const start = page * pageSize;
+      const end = Math.min(start + pageSize, TOTAL_ROWS);
+      const records = Array.from(entriesMap.values()).slice(start, end);
+      resolve({
+        pageIndex: page,
+        pageSize,
+        totalRecords: TOTAL_ROWS,
+        records,
+      });
+    }, timeout);
+  });
+}
+
+export async function apiDeleteRecord(id: string): Promise<boolean> {
+  const timeout = randomNumber(500, 1000);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const entry = entriesMap.get(id);
+      if (!entry) return false;
+      entriesMap.delete(id);
+      return resolve(true);
+    }, timeout);
+  });
+}
+
+function randomNumber(min: number, max: number) {
+  return Math.random() * (max - min) + min;
 }
