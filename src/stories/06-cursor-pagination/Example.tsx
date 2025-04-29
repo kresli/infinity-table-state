@@ -18,9 +18,9 @@ export function Example() {
         <div className="flex-1 overflow-hidden">
           <AcmeTable onRowHover={onRowHover} hoveredRowId={hoveredRowId} />
         </div>
-        {/* <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           <AcmeTable onRowHover={onRowHover} hoveredRowId={hoveredRowId} />
-        </div> */}
+        </div>
       </div>
     </div>
   );

@@ -20,9 +20,10 @@ interface PageResponse<Row> {
   records: Row[];
 }
 
-interface VisibleRow<Row> {
+interface Entry<Row> {
   record: Row | null;
   recordIndex: number;
+  pageIndex: number;
 }
 
 export interface UseTableProps<Row> {
@@ -37,7 +38,7 @@ export interface UseTable<Row> {
   columns: Column<Row>[];
   totalRows: number;
   rowPixelHeight: number;
-  visibleRows: VisibleRow<Row>[];
+  visibleRows: Entry<Row>[];
   setScrollContainerElement: (element: HTMLDivElement | null) => void;
   refechVisibleRows: () => Promise<void>;
 }
@@ -47,31 +48,27 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [visibleRange, setVisibleRange] = useState<Range>([0, 1]);
   const [paginatedState, setPaginatedState] = useState<PaginatedState<Row>>(defaultPaginatedState);
   const visibleRangeRef = useLiveRef(visibleRange);
-  const visibleRows = rangeToVisibleRows(visibleRange, paginatedState);
+  const visibleRows = rangeToEntries(visibleRange, paginatedState);
 
   const onVisibleRowsChange = async (range: Range) => {
     setVisibleRange(range);
-    const pagesIndexes = rangeToPageIndexes(range, paginatedState);
+    const pagesIndexes = visibleRows.map((row) => row.pageIndex);
     const pages = await props.onFetchPages(pagesIndexes, paginatedState.rowsPerPage);
     if (visibleRangeRef.current !== range) return;
-    const state = pagesToState(pages);
+    const state = mergePagesToState(pages);
     setPaginatedState(state);
   };
 
   const refechVisibleRows = async () => {
-    const prevRows = rangeToRows(visibleRange, paginatedState);
-    const pagesIndexes = rangeToPageIndexes(visibleRange, paginatedState);
-    const pages = await props.onFetchPages(pagesIndexes, paginatedState.rowsPerPage);
-    const newState = pagesToState(pages, paginatedState);
-    const nextRows = rangeToRows(visibleRange, newState);
-    const cursor = calculateOffsetFromCursor({
-      prevArray: prevRows,
-      nextArray: nextRows,
-      getItemId: props.getItemId,
+    const { onFetchPages, getItemId } = props;
+    const { state, cursor } = await fetchPagesWithCursor({
+      visibleRows,
+      paginatedState,
+      onFetchPages,
+      getItemId,
     });
-    scrollContainerElement!.scrollTop =
-      scrollContainerElement!.scrollTop + (cursor?.offset || 0) * props.rowPixelHeight;
-    setPaginatedState(newState);
+    if (cursor) scrollContainerElement!.scrollTop += cursor.offset * props.rowPixelHeight;
+    setPaginatedState(state);
   };
 
   useVisibleRowsObserver({
@@ -92,25 +89,45 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   };
 }
 
-function rowIndexToRow<Row>(rowIndex: number, state: PaginatedState<Row>) {
-  const pageSize = state.rowsPerPage;
-  const pageIndex = Math.floor(rowIndex / pageSize);
-  const pageOffset = rowIndex % pageSize;
-  const page = state.pages[pageIndex];
-  return page?.records.at(pageOffset) || null;
+async function fetchPagesWithCursor<Row>(params: {
+  visibleRows: Entry<Row>[];
+  paginatedState: PaginatedState<Row>;
+  onFetchPages: UseTableProps<Row>["onFetchPages"];
+  getItemId: (item: Row) => Id;
+}): Promise<{ state: PaginatedState<Row>; cursor: { offset: number } | null }> {
+  const prevRows = params.visibleRows.map((row) => row.record);
+  const pagesIndexes = params.visibleRows.map((row) => row.pageIndex);
+  const pages = await params.onFetchPages(pagesIndexes, params.paginatedState.rowsPerPage);
+  const newState = mergePagesToState(pages, params.paginatedState);
+  const range: Range = [params.visibleRows[0].recordIndex, params.visibleRows.at(-1)!.recordIndex];
+  const nextRows = rangeToEntries(range, newState).map((row) => row.record);
+  const cursor = calculateOffsetFromCursor({
+    prevArray: prevRows,
+    nextArray: nextRows,
+    getItemId: params.getItemId,
+  });
+  return { state: newState, cursor };
 }
 
-function rangeToVisibleRows<Row>(range: Range, state: PaginatedState<Row>): VisibleRow<Row>[] {
+function rangeToEntries<Row>(range: Range, state: PaginatedState<Row>): Entry<Row>[] {
   const [start, end] = range;
   const length = end - start + 1;
-  return Array.from({ length }, (_, index) => {
-    const recordIndex = index + start;
-    const record = rowIndexToRow(recordIndex, state);
-    return { record, recordIndex };
-  });
+  const entries: Entry<Row>[] = [];
+  for (let index = 0; index < length; index++) {
+    const rowIndex = index + start;
+    const pageIndex = Math.floor(rowIndex / state.rowsPerPage);
+    const page = state.pages[pageIndex];
+    const pageOffset = rowIndex % state.rowsPerPage;
+    const row = page?.records.at(pageOffset) || null;
+    entries.push({ record: row, recordIndex: rowIndex, pageIndex });
+  }
+  return entries;
 }
 
-function pagesToState<Row>(pages: PageResponse<Row>[], prevPaginatedState?: PaginatedState<Row>) {
+function mergePagesToState<Row>(
+  pages: PageResponse<Row>[],
+  prevPaginatedState?: PaginatedState<Row>
+) {
   if (!pages.length) return defaultPaginatedState;
   const newPages = prevPaginatedState ? [...prevPaginatedState.pages] : [];
   for (const page of pages) {
@@ -119,32 +136,6 @@ function pagesToState<Row>(pages: PageResponse<Row>[], prevPaginatedState?: Pagi
   const totalRecords = pages[0].totalRecords;
   const rowsPerPage = pages[0].pageSize;
   return { pages: newPages, totalRows: totalRecords, rowsPerPage };
-}
-
-function rangeToPageIndexes(range: Range, state: PaginatedState<unknown>): number[] {
-  const { totalRows, rowsPerPage } = state;
-  const [start, end] = range;
-  if (totalRows === 0) return [start];
-  const result: number[] = [];
-  const currentPage = Math.floor(start / rowsPerPage);
-  const lastPage = Math.floor(end / rowsPerPage);
-  for (let page = currentPage; page <= lastPage; page++) {
-    if (page < totalRows) result.push(page);
-  }
-  return result;
-}
-
-function rangeToRows<Row>(visibleRange: Range, state: PaginatedState<Row>): (Row | null)[] {
-  const { pages } = state;
-  const visibleRowsCount = visibleRange[1] - visibleRange[0] + 1;
-  return Array.from({ length: visibleRowsCount }, (_, index) => {
-    const pageSize = pages[0]?.pageSize || 0;
-    const recordIndex = index + visibleRange[0];
-    const pageIndex = Math.floor(recordIndex / pageSize);
-    const pageOffset = recordIndex % pageSize;
-    const page = pages[pageIndex];
-    return page?.records.at(pageOffset) || null;
-  });
 }
 
 const defaultPaginatedState: PaginatedState<never> = {
