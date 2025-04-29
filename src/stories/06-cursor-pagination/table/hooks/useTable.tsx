@@ -1,12 +1,29 @@
 import { useVisibleRowsObserver } from "./useVisibleRowsObserver";
 import { Column } from "../types/Column";
 import { useState } from "react";
-import { useOnMount } from "../../useOnMount";
-import { PageResponse, usePaginator } from "./PageResponse";
 import { Range } from "../types/Range";
 import { calculateOffsetFromCursor } from "../../utils/calculate-offset-from-cursor";
+import { useLiveRef } from "./useLiveRef";
 
 type Id = string | number;
+
+interface PaginatedState<Row> {
+  pages: (PageResponse<Row> | undefined)[];
+  totalRows: number;
+  rowsPerPage: number;
+}
+
+interface PageResponse<Row> {
+  pageIndex: number;
+  pageSize: number;
+  totalRecords: number;
+  records: Row[];
+}
+
+interface VisibleRow<Row> {
+  record: Row | null;
+  recordIndex: number;
+}
 
 export interface UseTableProps<Row> {
   columns: Column<Row>[];
@@ -18,18 +35,107 @@ export interface UseTableProps<Row> {
 
 export interface UseTable<Row> {
   columns: Column<Row>[];
-  rows: (Row | null)[];
   totalRows: number;
   rowPixelHeight: number;
-  visibleRows: { record: Row | null; recordIndex: number }[];
+  visibleRows: VisibleRow<Row>[];
   setScrollContainerElement: (element: HTMLDivElement | null) => void;
   refechVisibleRows: () => Promise<void>;
 }
 
-function getVisibleRowsFromPages<Row>(
-  pages: (PageResponse<Row> | undefined)[],
-  visibleRange: Range
-): (Row | null)[] {
+export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
+  const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
+  const [visibleRange, setVisibleRange] = useState<Range>([0, 1]);
+  const [paginatedState, setPaginatedState] = useState<PaginatedState<Row>>(defaultPaginatedState);
+  const visibleRangeRef = useLiveRef(visibleRange);
+  const visibleRows = rangeToVisibleRows(visibleRange, paginatedState);
+
+  const onVisibleRowsChange = async (range: Range) => {
+    setVisibleRange(range);
+    const pagesIndexes = rangeToPageIndexes(range, paginatedState);
+    const pages = await props.onFetchPages(pagesIndexes, paginatedState.rowsPerPage);
+    if (visibleRangeRef.current !== range) return;
+    const state = pagesToState(pages);
+    setPaginatedState(state);
+  };
+
+  const refechVisibleRows = async () => {
+    const prevRows = rangeToRows(visibleRange, paginatedState);
+    const pagesIndexes = rangeToPageIndexes(visibleRange, paginatedState);
+    const pages = await props.onFetchPages(pagesIndexes, paginatedState.rowsPerPage);
+    const newState = pagesToState(pages, paginatedState);
+    const nextRows = rangeToRows(visibleRange, newState);
+    const cursor = calculateOffsetFromCursor({
+      prevArray: prevRows,
+      nextArray: nextRows,
+      getItemId: props.getItemId,
+    });
+    scrollContainerElement!.scrollTop =
+      scrollContainerElement!.scrollTop + (cursor?.offset || 0) * props.rowPixelHeight;
+    setPaginatedState(newState);
+  };
+
+  useVisibleRowsObserver({
+    element: scrollContainerElement,
+    buffer: props.rowBuffer,
+    totalRows: paginatedState.totalRows,
+    rowPixelHeight: props.rowPixelHeight,
+    onVisibleRowsChange,
+  });
+
+  return {
+    columns: props.columns,
+    totalRows: paginatedState.totalRows,
+    rowPixelHeight: props.rowPixelHeight,
+    visibleRows,
+    setScrollContainerElement,
+    refechVisibleRows,
+  };
+}
+
+function rowIndexToRow<Row>(rowIndex: number, state: PaginatedState<Row>) {
+  const pageSize = state.rowsPerPage;
+  const pageIndex = Math.floor(rowIndex / pageSize);
+  const pageOffset = rowIndex % pageSize;
+  const page = state.pages[pageIndex];
+  return page?.records.at(pageOffset) || null;
+}
+
+function rangeToVisibleRows<Row>(range: Range, state: PaginatedState<Row>): VisibleRow<Row>[] {
+  const [start, end] = range;
+  const length = end - start + 1;
+  return Array.from({ length }, (_, index) => {
+    const recordIndex = index + start;
+    const record = rowIndexToRow(recordIndex, state);
+    return { record, recordIndex };
+  });
+}
+
+function pagesToState<Row>(pages: PageResponse<Row>[], prevPaginatedState?: PaginatedState<Row>) {
+  if (!pages.length) return defaultPaginatedState;
+  const newPages = prevPaginatedState ? [...prevPaginatedState.pages] : [];
+  for (const page of pages) {
+    newPages[page.pageIndex] = page;
+  }
+  const totalRecords = pages[0].totalRecords;
+  const rowsPerPage = pages[0].pageSize;
+  return { pages: newPages, totalRows: totalRecords, rowsPerPage };
+}
+
+function rangeToPageIndexes(range: Range, state: PaginatedState<unknown>): number[] {
+  const { totalRows, rowsPerPage } = state;
+  const [start, end] = range;
+  if (totalRows === 0) return [start];
+  const result: number[] = [];
+  const currentPage = Math.floor(start / rowsPerPage);
+  const lastPage = Math.floor(end / rowsPerPage);
+  for (let page = currentPage; page <= lastPage; page++) {
+    if (page < totalRows) result.push(page);
+  }
+  return result;
+}
+
+function rangeToRows<Row>(visibleRange: Range, state: PaginatedState<Row>): (Row | null)[] {
+  const { pages } = state;
   const visibleRowsCount = visibleRange[1] - visibleRange[0] + 1;
   return Array.from({ length: visibleRowsCount }, (_, index) => {
     const pageSize = pages[0]?.pageSize || 0;
@@ -41,110 +147,8 @@ function getVisibleRowsFromPages<Row>(
   });
 }
 
-export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
-  const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
-  const [visibleRange, setVisibleRange] = useState<Range>([0, 0]);
-  const paginator = usePaginator(props.onFetchPages);
-
-  const onVisibleRowsChange = async (range: Range) => {
-    if (range[0] === visibleRange[0] && range[1] === visibleRange[1]) return;
-    setVisibleRange(range);
-    // const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, range);
-    await paginator.fetchPagesByRange(range);
-    // const nextVisibleRows = getVisibleRowsFromPages(newPages, range);
-    // const commonSubarray = calculateOffsetFromCursor({
-    //   prevArray: prevVisibleRows,
-    //   nextArray: nextVisibleRows,
-    //   getItemId: props.getItemId,
-    // });
-    // console.log("commonSubarray", commonSubarray);
-  };
-
-  useVisibleRowsObserver({
-    element: scrollContainerElement,
-    buffer: props.rowBuffer,
-    totalRows: paginator.totalRows,
-    rowPixelHeight: props.rowPixelHeight,
-    onVisibleRowsChange,
-  });
-
-  const visibleRowsCount = visibleRange[1] - visibleRange[0] + 1;
-
-  const visibleRows = Array.from({ length: visibleRowsCount }, (_, index) => {
-    const recordIndex = index + visibleRange[0];
-    const record = paginator.data.at(recordIndex) || null;
-    return { record, recordIndex };
-  });
-
-  const refechVisibleRows = async () => {
-    const prevVisibleRows = getVisibleRowsFromPages(paginator.pages, visibleRange);
-    await paginator.fetchPagesByRange(visibleRange, (pages) => {
-      const nextVisibleRows = getVisibleRowsFromPages(pages, visibleRange);
-      const commonSubarray = calculateOffsetFromCursor({
-        prevArray: prevVisibleRows,
-        nextArray: nextVisibleRows,
-        getItemId: props.getItemId,
-      });
-      scrollContainerElement!.scrollTop =
-        scrollContainerElement!.scrollTop + (commonSubarray?.offset || 0) * props.rowPixelHeight;
-      console.log("commonSubarray", commonSubarray);
-    });
-  };
-
-  useOnMount(() => paginator.fetchPage(0));
-
-  return {
-    columns: props.columns,
-    rows: paginator.data,
-    totalRows: paginator.totalRows,
-    rowPixelHeight: props.rowPixelHeight,
-    visibleRows,
-    setScrollContainerElement,
-    refechVisibleRows,
-  };
-}
-
-// const prevData = usePrevValue(props.data);
-
-// useLayoutEffect(() => {
-//   if (scrollContainerElement === null) return;
-//   const prevVisibleData = prevData.slice(props.visibleRows[0], props.visibleRows[1] + 1);
-//   const nextVisibleData = props.data.slice(props.visibleRows[0], props.visibleRows[1] + 1);
-//   const commonSubarray = calculateOffsetFromCursor({
-//     prevArray: prevVisibleData,
-//     nextArray: nextVisibleData,
-//     getItemId: (item) => item.name,
-//   });
-//   scrollContainerElement.scrollTop =
-//     scrollContainerElement.scrollTop + (commonSubarray?.offset || 0) * props.rowPixelHeight;
-//   // props.onVisibleRowsChange([
-//   //   props.visibleRows[0] + commonSubarray?.offset,
-//   //   props.visibleRows[1] + commonSubarray?.offset,
-//   // ]);
-// }, [prevData, props.data, props.rowPixelHeight, props.visibleRows, scrollContainerElement]);
-
-// onVisibleRowsChange: async (range) => {
-//   if (scrollContainerElement === null) return;
-//   const prevVisibleData = Array.from(
-//     { length: props.visibleRows[1] - props.visibleRows[0] + 1 },
-//     (_, index) => {
-//       const recordIndex = index + props.visibleRows[0];
-//       const record = data.at(recordIndex) || null;
-//       return record;
-//     }
-//   );
-//   const allData = await props.onVisibleRowsChange(range);
-//   const nextVisibleData = Array.from({ length: range[1] - range[0] + 1 }, (_, index) => {
-//     const recordIndex = index + range[0];
-//     const record = allData.at(recordIndex) || null;
-//     return record;
-//   });
-//   const commonSubarray = calculateOffsetFromCursor({
-//     prevArray: prevVisibleData,
-//     nextArray: nextVisibleData,
-//     getItemId: props.getItemId,
-//   });
-//   setData(nextVisibleData);
-//   scrollContainerElement.scrollTop =
-//     scrollContainerElement.scrollTop + (commonSubarray?.offset || 0) * props.rowPixelHeight;
-// },
+const defaultPaginatedState: PaginatedState<never> = {
+  pages: [],
+  totalRows: 10,
+  rowsPerPage: 10,
+};

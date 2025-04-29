@@ -8,6 +8,6 @@ interface RowProps<RowData> {
 export interface Column<Row> {
   id: string;
   width: number | string;
-  BodyCell: (props: RowProps<Row>) => ReactElement;
+  BodyCell: (props: RowProps<Row | null>) => ReactElement;
   HeaderCell: () => ReactElement;
 }

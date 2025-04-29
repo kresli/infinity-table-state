@@ -18,19 +18,19 @@ const columns: Column<Row>[] = [
   {
     id: "name",
     width: 100,
-    BodyCell: ({ record }) => <div className="truncate">{record.name}</div>,
+    BodyCell: ({ record }) => <div className="truncate">{record?.name}</div>,
     HeaderCell: () => <span className="truncate">Name</span>,
   },
   {
     id: "age",
     width: 100,
-    BodyCell: ({ record }) => <div>{record.age}</div>,
+    BodyCell: ({ record }) => <div>{record?.age}</div>,
     HeaderCell: () => <span>Age</span>,
   },
   {
     id: "email",
     width: "auto",
-    BodyCell: ({ record }) => <div className="text-nowrap">{record.email}</div>,
+    BodyCell: ({ record }) => <div className="text-nowrap">{record?.email}</div>,
     HeaderCell: () => <span>Email</span>,
   },
 ];
@@ -140,7 +140,7 @@ export function AcmeTable(props: AcmeTableProps) {
               >
                 {(column) => (
                   <Table.RowCell className="p-1 px-2" key={column.id} column={column}>
-                    {row && <column.BodyCell record={row} recordIndex={rowIndex} />}
+                    <column.BodyCell record={row} recordIndex={rowIndex} />
                   </Table.RowCell>
                 )}
               </Table.BodyRow>
