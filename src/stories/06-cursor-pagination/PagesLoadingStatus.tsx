@@ -7,7 +7,7 @@ export function PagesLoadingStatus(props: {
   return (
     <div className="flex flex-row gap-2 border border-slate-400 rounded p-2 overflow-hidden">
       <div className="text-nowrap">fetching page</div>
-      {Array.from({ length: props.totalPages }).map((_, pageIndex) => (
+      {Array.from({ length: 18 }).map((_, pageIndex) => (
         <div
           key={pageIndex}
           className={clsx(

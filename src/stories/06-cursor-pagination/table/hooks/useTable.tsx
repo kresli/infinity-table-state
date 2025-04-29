@@ -50,23 +50,16 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const visibleRangeRef = useLiveRef(visibleRange);
   const visibleRows = rangeToEntries(visibleRange, paginatedState);
 
-  const onVisibleRowsChange = async (range: Range) => {
-    setVisibleRange(range);
-    const pagesIndexes = visibleRows.map((row) => row.pageIndex);
-    const pages = await props.onFetchPages(pagesIndexes, paginatedState.rowsPerPage);
-    if (visibleRangeRef.current !== range) return;
-    const state = mergePagesToState(pages);
-    setPaginatedState(state);
-  };
-
-  const refechVisibleRows = async () => {
+  const refechVisibleRows = async (range?: Range) => {
     const { onFetchPages, getItemId } = props;
+    if (range) setVisibleRange(range);
     const { state, cursor } = await fetchPagesWithCursor({
       visibleRows,
       paginatedState,
       onFetchPages,
       getItemId,
     });
+    if (visibleRangeRef.current !== range) return;
     if (cursor) scrollContainerElement!.scrollTop += cursor.offset * props.rowPixelHeight;
     setPaginatedState(state);
   };
@@ -76,7 +69,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     buffer: props.rowBuffer,
     totalRows: paginatedState.totalRows,
     rowPixelHeight: props.rowPixelHeight,
-    onVisibleRowsChange,
+    onVisibleRowsChange: refechVisibleRows,
   });
 
   return {

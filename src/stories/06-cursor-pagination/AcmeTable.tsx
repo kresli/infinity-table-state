@@ -79,7 +79,6 @@ export function AcmeTable(props: AcmeTableProps) {
   });
 
   const onToggleSelectedRow = (rowIndex: string) => {
-    console.log("onToggleSelectedROw", rowIndex);
     setSelectedRowsIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(rowIndex)) {
