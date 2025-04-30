@@ -1,6 +1,6 @@
 import { useVisibleRowsObserver } from "./useVisibleRowsObserver";
 import { Column } from "../types/Column";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Range } from "../types/Range";
 import { calculateOffsetFromCursor } from "../../utils/calculate-offset-from-cursor";
 import { useLiveRef } from "./useLiveRef";
@@ -41,68 +41,146 @@ export interface UseTable<Row> {
   totalRows: number;
   rowPixelHeight: number;
   visibleRows: Entry<Row>[];
-  scrollTop: number;
   setScrollContainerElement: (element: HTMLDivElement | null) => void;
   refechVisibleRows: () => Promise<void>;
 }
 
 export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
-  const [visibleRange, setVisibleRange] = useState<Range>([0, 1]);
-  const [paginatedState, setPaginatedState] = useState<PaginatedState<Row>>(defaultPaginatedState);
-  const [scrollTop, setScrollTop] = useState(0);
-  const visibleRangeRef = useLiveRef(visibleRange);
-  const visibleRows = rangeToEntries(visibleRange, paginatedState);
+  // const [visibleRange, setVisibleRange] = useState<Range>([0, 1]);
+  // const [paginatedState, setPaginatedState] = useState<PaginatedState<Row>>(defaultPaginatedState);
+  // const [scrollTop, setScrollTop] = useState(0);
+  // const visibleRangeRef = useLiveRef(visibleRange);
+  // const visibleRows = rangeToEntries(visibleRange, paginatedState);
+  const [visibleRows, setVisibleRows] = useState<Entry<Row>[]>([]);
+  const [totalRows, setTotalRows] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [pages, setPages] = useState<(PageResponse<Row> | undefined)[]>([]);
 
-  const refechVisibleRows = async (range?: Range) => {
-    const { onFetchPages, getItemId } = props;
-    if (range) setVisibleRange(range);
-    const { state, cursor } = await fetchPagesWithCursor({
-      visibleRows,
-      paginatedState,
-      onFetchPages,
-      getItemId,
-    });
-    if (visibleRangeRef.current !== range) return;
-    if (cursor) setScrollTop((prev) => Math.max(prev + cursor.offset * props.rowPixelHeight, 0));
-    setPaginatedState(state);
-  };
+  const rangeRef = useRef<Range>([0, 1]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const updateState = (params: { deltaY: number }) => {
+  const updateState = async (params: { deltaY: number }) => {
     if (!scrollContainerElement) return;
-    const _scrollTop = params.deltaY + (scrollContainerElement.scrollTop || 0);
-    const _containerHeight = scrollContainerElement.clientHeight || 0;
-
-    const [firstVisibleRowIndex, lastVisibleRowIndex] = getVisibleRows({
-      buffer: props.rowBuffer,
-      totalRows: paginatedState.totalRows,
-      rowPixelHeight: props.rowPixelHeight,
-      scrollTop: _scrollTop,
-      containerHeight: _containerHeight,
-    });
-
-    setScrollTop(_scrollTop);
-    setVisibleRange([firstVisibleRowIndex, lastVisibleRowIndex]);
-    refechVisibleRows([firstVisibleRowIndex, lastVisibleRowIndex]);
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    try {
+      await handleUpdateState<Row>({
+        scrollContainerElement,
+        deltaY: params.deltaY,
+        totalRows,
+        rowBuffer: props.rowBuffer,
+        rowPixelHeight: props.rowPixelHeight,
+        pages,
+        rowsPerPage,
+        onFetchPages: props.onFetchPages,
+        getItemId: props.getItemId,
+        setVisibleRows,
+        setPages,
+        setTotalRows,
+        setRowsPerPage,
+        rangeRef,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.log("Request aborted");
+        return;
+      }
+    } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+    }
   };
 
   useWheel(scrollContainerElement, (e) => updateState({ deltaY: e.deltaY }));
   useClientRectObserver(scrollContainerElement, () => updateState({ deltaY: 0 }));
 
-  useLayoutEffect(() => {
-    if (!scrollContainerElement) return;
-    scrollContainerElement.scrollTop = scrollTop;
-  }, [scrollContainerElement, scrollTop]);
+  const refechVisibleRows = async () => {
+    await updateState({ deltaY: 0 });
+  };
 
   return {
     columns: props.columns,
-    totalRows: paginatedState.totalRows,
+    totalRows,
     rowPixelHeight: props.rowPixelHeight,
     visibleRows,
     setScrollContainerElement,
     refechVisibleRows,
-    scrollTop,
   };
+}
+
+async function handleUpdateState<Row>(params: {
+  scrollContainerElement: HTMLDivElement | null;
+  deltaY: number;
+  totalRows: number;
+  rowBuffer: number;
+  rowPixelHeight: number;
+  pages: (PageResponse<Row> | undefined)[];
+  rowsPerPage: number;
+  onFetchPages: UseTableProps<Row>["onFetchPages"];
+  getItemId: UseTableProps<Row>["getItemId"];
+  setVisibleRows: (rows: Entry<Row>[]) => void;
+  setPages: (pages: (PageResponse<Row> | undefined)[]) => void;
+  setTotalRows: (totalRows: number) => void;
+  setRowsPerPage: (rowsPerPage: number) => void;
+  rangeRef: React.MutableRefObject<Range>;
+}) {
+  const {
+    scrollContainerElement,
+    deltaY,
+    totalRows,
+    rowBuffer,
+    rowPixelHeight,
+    onFetchPages,
+    getItemId,
+    pages,
+    rowsPerPage,
+    setVisibleRows,
+    setPages,
+    setTotalRows,
+    setRowsPerPage,
+    rangeRef,
+  } = params;
+  if (!scrollContainerElement) return;
+  const scrollTop = deltaY + (scrollContainerElement.scrollTop || 0);
+  const containerHeight = scrollContainerElement.clientHeight || 0;
+
+  const range = getVisibleRows({
+    buffer: rowBuffer,
+    totalRows,
+    rowPixelHeight: rowPixelHeight,
+    scrollTop,
+    containerHeight,
+  });
+  const visibleRows = rangeToEntries(range, {
+    pages,
+    totalRows,
+    rowsPerPage,
+  });
+  setVisibleRows(visibleRows);
+  scrollContainerElement.scrollTop = Math.max(scrollTop, 0);
+  rangeRef.current = range;
+  const { state, cursor } = await fetchPagesWithCursor({
+    visibleRows,
+    paginatedState: { pages, totalRows, rowsPerPage },
+    onFetchPages,
+    getItemId,
+  });
+  if (rangeRef.current !== range) return;
+  const offset = cursor?.offset || 0;
+  scrollContainerElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
+  setPages(state.pages);
+  setTotalRows(state.totalRows);
+  setRowsPerPage(state.rowsPerPage);
+  setVisibleRows(
+    rangeToEntries(range, {
+      pages: state.pages,
+      totalRows: state.totalRows,
+      rowsPerPage: state.rowsPerPage,
+    })
+  );
 }
 
 function useWheel(element: HTMLDivElement | null, callback: (e: WheelEvent) => void) {
