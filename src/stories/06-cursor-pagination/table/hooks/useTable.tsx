@@ -47,59 +47,43 @@ export interface UseTable<Row> {
 
 export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
-  // const [visibleRange, setVisibleRange] = useState<Range>([0, 1]);
-  // const [paginatedState, setPaginatedState] = useState<PaginatedState<Row>>(defaultPaginatedState);
-  // const [scrollTop, setScrollTop] = useState(0);
-  // const visibleRangeRef = useLiveRef(visibleRange);
-  // const visibleRows = rangeToEntries(visibleRange, paginatedState);
   const [visibleRows, setVisibleRows] = useState<Entry<Row>[]>([]);
   const [totalRows, setTotalRows] = useState(10);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [pages, setPages] = useState<(PageResponse<Row> | undefined)[]>([]);
-
-  const rangeRef = useRef<Range>([0, 1]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const rangeRef = useRef<Range>([0, 1]);
+
   const updateState = async (params: { deltaY: number }) => {
-    if (!scrollContainerElement) return;
     abortControllerRef.current?.abort();
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    try {
-      await handleUpdateState<Row>({
-        scrollContainerElement,
-        deltaY: params.deltaY,
-        totalRows,
-        rowBuffer: props.rowBuffer,
-        rowPixelHeight: props.rowPixelHeight,
-        pages,
-        rowsPerPage,
-        onFetchPages: props.onFetchPages,
-        getItemId: props.getItemId,
-        setVisibleRows,
-        setPages,
-        setTotalRows,
-        setRowsPerPage,
-        rangeRef,
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        console.log("Request aborted");
-        return;
-      }
-    } finally {
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
-      }
-    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    if (!scrollContainerElement) return;
+    await handleUpdateState<Row>({
+      scrollContainerElement,
+      deltaY: params.deltaY,
+      totalRows,
+      rowBuffer: props.rowBuffer,
+      rowPixelHeight: props.rowPixelHeight,
+      pages,
+      rowsPerPage,
+      onFetchPages: props.onFetchPages,
+      getItemId: props.getItemId,
+      setVisibleRows,
+      setPages,
+      setTotalRows,
+      setRowsPerPage,
+      rangeRef,
+      abortSignal: controller.signal,
+    });
+    if (abortControllerRef.current === controller) abortControllerRef.current = null;
   };
 
   useWheel(scrollContainerElement, (e) => updateState({ deltaY: e.deltaY }));
   useClientRectObserver(scrollContainerElement, () => updateState({ deltaY: 0 }));
 
-  const refechVisibleRows = async () => {
-    await updateState({ deltaY: 0 });
-  };
+  const refechVisibleRows = async () => await updateState({ deltaY: 0 });
 
   return {
     columns: props.columns,
@@ -126,6 +110,7 @@ async function handleUpdateState<Row>(params: {
   setTotalRows: (totalRows: number) => void;
   setRowsPerPage: (rowsPerPage: number) => void;
   rangeRef: React.MutableRefObject<Range>;
+  abortSignal: AbortSignal;
 }) {
   const {
     scrollContainerElement,
@@ -162,12 +147,34 @@ async function handleUpdateState<Row>(params: {
   setVisibleRows(visibleRows);
   scrollContainerElement.scrollTop = Math.max(scrollTop, 0);
   rangeRef.current = range;
-  const { state, cursor } = await fetchPagesWithCursor({
+
+  const fetchPromise = fetchPagesWithCursor({
     visibleRows,
     paginatedState: { pages, totalRows, rowsPerPage },
     onFetchPages,
     getItemId,
   });
+
+  let result: PagesWithCursor<Row>;
+
+  const abortPromise = new Promise<never>((_, reject) => {
+    params.abortSignal.addEventListener("abort", () =>
+      reject(new DOMException("aborted", "AbortError"))
+    );
+  });
+
+  try {
+    result = await Promise.race([fetchPromise, abortPromise]);
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      console.log("aborted");
+      return;
+    }
+    throw error;
+  }
+
+  const { state, cursor } = result;
+
   if (rangeRef.current !== range) return;
   const offset = cursor?.offset || 0;
   scrollContainerElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
@@ -200,16 +207,21 @@ function useWheel(element: HTMLDivElement | null, callback: (e: WheelEvent) => v
 // ==========
 // ==========
 
+interface PagesWithCursor<Row> {
+  state: PaginatedState<Row>;
+  cursor: { offset: number } | null;
+}
+
 async function fetchPagesWithCursor<Row>(params: {
   visibleRows: Entry<Row>[];
   paginatedState: PaginatedState<Row>;
   onFetchPages: UseTableProps<Row>["onFetchPages"];
   getItemId: (item: Row) => Id;
-}): Promise<{ state: PaginatedState<Row>; cursor: { offset: number } | null }> {
+}): Promise<PagesWithCursor<Row>> {
   const prevRows = params.visibleRows.map((row) => row.record);
   const pagesIndexes = params.visibleRows.map((row) => row.pageIndex);
   const pages = await params.onFetchPages(pagesIndexes, params.paginatedState.rowsPerPage);
-  const newState = mergePagesToState(pages, params.paginatedState);
+  const newState = mergePagesToState(pages); // params.paginatedState
   const range: Range = [params.visibleRows[0].recordIndex, params.visibleRows.at(-1)!.recordIndex];
   const nextRows = rangeToEntries(range, newState).map((row) => row.record);
   const cursor = calculateOffsetFromCursor({

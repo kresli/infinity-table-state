@@ -15,9 +15,9 @@ export function Example() {
   return (
     <div className="w-full h-auto flex flex-col">
       <div className="overflow-hidden flex-row flex gap-2 ">
-        {/* <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           <AcmeTable onRowHover={onRowHover} hoveredRowId={hoveredRowId} />
-        </div> */}
+        </div>
         <div className="flex-1 overflow-hidden">
           <AcmeTable onRowHover={onRowHover} hoveredRowId={hoveredRowId} />
         </div>
