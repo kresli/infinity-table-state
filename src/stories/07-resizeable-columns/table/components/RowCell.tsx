@@ -10,6 +10,7 @@ export function RowCell<Row>(props: RowCellProps<Row>) {
   const style: CSSProperties = {
     width: column.width,
     maxWidth: column.width,
+    minWidth: column.width,
     flex: 1,
   };
   return (
