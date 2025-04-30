@@ -11,11 +11,11 @@ export function viewToVisibleRange(
 ): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
   const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
 
-  const absouluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
-  const firstVisibleRowIndex = Math.max(0, absouluteFirstVisibleRowIndex - buffer);
+  const absoluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
+  const firstVisibleRowIndex = Math.max(0, absoluteFirstVisibleRowIndex - buffer);
   const lastVisibleRowIndex = Math.min(
     totalRows - 1,
-    absouluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight) + buffer
+    absoluteFirstVisibleRowIndex + Math.ceil(containerHeight / rowPixelHeight) + buffer
   );
 
   return [firstVisibleRowIndex, lastVisibleRowIndex];

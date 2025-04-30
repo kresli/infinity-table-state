@@ -2,7 +2,7 @@ interface Cluster<T> {
   // The index of the first element in arrB that matches the start of arrA
   sourceArrayIndex: number;
   sourceShift: number;
-  segements: T[];
+  segments: T[];
 }
 /**
  * Finds the biggest contiguous matching "cluster" between two arrays.
@@ -49,6 +49,6 @@ export function findLongestCommonSubarray<T>(source: T[], target: T[]): Cluster<
   return {
     sourceArrayIndex: startSrc,
     sourceShift: startTgt - startSrc,
-    segements: source.slice(startSrc, endSrc),
+    segments: source.slice(startSrc, endSrc),
   };
 }

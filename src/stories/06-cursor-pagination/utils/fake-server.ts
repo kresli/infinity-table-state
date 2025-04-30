@@ -54,7 +54,7 @@ export async function apiDeleteRecord(id: string): Promise<boolean> {
   return new Promise((resolve) => {
     setTimeout(() => {
       const entry = entriesMap.get(id);
-      if (!entry) return false;
+      if (!entry) return resolve(false);
       entriesMap.delete(id);
       return resolve(true);
     }, timeout);
