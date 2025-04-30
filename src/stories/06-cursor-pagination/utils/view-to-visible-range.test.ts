@@ -1,7 +1,7 @@
-import { getVisibleRows } from "./get-visible-rows";
+import { viewToVisibleRange } from "./view-to-visible-range";
 
 test("get visible rows", () => {
-  const result = getVisibleRows({
+  const result = viewToVisibleRange({
     buffer: 2,
     totalRows: 100,
     rowPixelHeight: 20,

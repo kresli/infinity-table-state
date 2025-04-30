@@ -6,7 +6,7 @@ export interface GetVisibleRowsProps {
   buffer: number;
 }
 
-export function getVisibleRows(
+export function viewToVisibleRange(
   props: GetVisibleRowsProps
 ): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
   const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;

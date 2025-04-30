@@ -1,11 +1,11 @@
-import { useVisibleRowsObserver } from "./useVisibleRowsObserver";
 import { Column } from "../types/Column";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Range } from "../types/Range";
 import { calculateOffsetFromCursor } from "../../utils/calculate-offset-from-cursor";
 import { useLiveRef } from "./useLiveRef";
-import { getVisibleRows } from "../../utils/get-visible-rows";
+import { viewToVisibleRange } from "../../utils/view-to-visible-range";
 import { useClientRectObserver } from "./useClientRectObserver";
+import { useAbortController } from "./useAbortController";
 
 type Id = string | number;
 
@@ -45,39 +45,41 @@ export interface UseTable<Row> {
   refechVisibleRows: () => Promise<void>;
 }
 
+interface TablePagination<Row> {
+  pages: (PageResponse<Row> | undefined)[];
+  totalRows: number;
+  rowsPerPage: number;
+  visibleRows: Entry<Row>[];
+}
+
+const defaultPagination: TablePagination<never> = {
+  pages: [],
+  totalRows: 10,
+  rowsPerPage: 10,
+  visibleRows: [],
+};
+
 export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
-  const [visibleRows, setVisibleRows] = useState<Entry<Row>[]>([]);
-  const [totalRows, setTotalRows] = useState(10);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [pages, setPages] = useState<(PageResponse<Row> | undefined)[]>([]);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const abortController = useAbortController();
 
-  const rangeRef = useRef<Range>([0, 1]);
+  const [pagination, setPagination] = useState<TablePagination<Row>>(defaultPagination);
 
   const updateState = async (params: { deltaY: number }) => {
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    const controller = abortController.resetController();
     if (!scrollContainerElement) return;
     await handleUpdateState<Row>({
-      scrollContainerElement,
+      pagination,
+      scrollElement: scrollContainerElement,
       deltaY: params.deltaY,
-      totalRows,
       rowBuffer: props.rowBuffer,
       rowPixelHeight: props.rowPixelHeight,
-      pages,
-      rowsPerPage,
+      abortSignal: controller.signal,
       onFetchPages: props.onFetchPages,
       getItemId: props.getItemId,
-      setVisibleRows,
-      setPages,
-      setTotalRows,
-      setRowsPerPage,
-      rangeRef,
-      abortSignal: controller.signal,
+      setPagination,
     });
-    if (abortControllerRef.current === controller) abortControllerRef.current = null;
+    abortController.resetController(controller);
   };
 
   useWheel(scrollContainerElement, (e) => updateState({ deltaY: e.deltaY }));
@@ -87,70 +89,49 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
 
   return {
     columns: props.columns,
-    totalRows,
+    totalRows: pagination.totalRows,
     rowPixelHeight: props.rowPixelHeight,
-    visibleRows,
+    visibleRows: pagination.visibleRows,
     setScrollContainerElement,
     refechVisibleRows,
   };
 }
 
-async function handleUpdateState<Row>(params: {
-  scrollContainerElement: HTMLDivElement | null;
+interface HandleUpdateStateParams<Row> {
+  pagination: TablePagination<Row>;
+  scrollElement: HTMLDivElement | null;
   deltaY: number;
-  totalRows: number;
   rowBuffer: number;
   rowPixelHeight: number;
-  pages: (PageResponse<Row> | undefined)[];
-  rowsPerPage: number;
   onFetchPages: UseTableProps<Row>["onFetchPages"];
   getItemId: UseTableProps<Row>["getItemId"];
-  setVisibleRows: (rows: Entry<Row>[]) => void;
-  setPages: (pages: (PageResponse<Row> | undefined)[]) => void;
-  setTotalRows: (totalRows: number) => void;
-  setRowsPerPage: (rowsPerPage: number) => void;
-  rangeRef: React.MutableRefObject<Range>;
+  setPagination: React.Dispatch<React.SetStateAction<TablePagination<Row>>>;
   abortSignal: AbortSignal;
-}) {
-  const {
-    scrollContainerElement,
-    deltaY,
-    totalRows,
-    rowBuffer,
-    rowPixelHeight,
-    onFetchPages,
-    getItemId,
-    pages,
-    rowsPerPage,
-    setVisibleRows,
-    setPages,
-    setTotalRows,
-    setRowsPerPage,
-    rangeRef,
-  } = params;
-  if (!scrollContainerElement) return;
-  const scrollTop = deltaY + (scrollContainerElement.scrollTop || 0);
-  const containerHeight = scrollContainerElement.clientHeight || 0;
+}
 
-  const range = getVisibleRows({
+async function handleUpdateState<Row>(params: HandleUpdateStateParams<Row>) {
+  const { scrollElement, deltaY, rowBuffer, rowPixelHeight, onFetchPages, getItemId } = params;
+  if (!scrollElement) return;
+
+  const scrollTop = deltaY + (scrollElement.scrollTop || 0);
+  const containerHeight = scrollElement.clientHeight || 0;
+  scrollElement.scrollTop = Math.max(scrollTop, 0);
+
+  const range = viewToVisibleRange({
     buffer: rowBuffer,
-    totalRows,
+    totalRows: params.pagination.totalRows,
     rowPixelHeight: rowPixelHeight,
     scrollTop,
     containerHeight,
   });
-  const visibleRows = rangeToEntries(range, {
-    pages,
-    totalRows,
-    rowsPerPage,
-  });
-  setVisibleRows(visibleRows);
-  scrollContainerElement.scrollTop = Math.max(scrollTop, 0);
-  rangeRef.current = range;
+
+  const visibleEntries = rangeToEntries(range, params.pagination);
+
+  params.setPagination((prev) => ({ ...prev, visibleRows: visibleEntries }));
 
   const fetchPromise = fetchPagesWithCursor({
-    visibleRows,
-    paginatedState: { pages, totalRows, rowsPerPage },
+    entries: visibleEntries,
+    paginatedState: params.pagination,
     onFetchPages,
     getItemId,
   });
@@ -175,19 +156,15 @@ async function handleUpdateState<Row>(params: {
 
   const { state, cursor } = result;
 
-  if (rangeRef.current !== range) return;
   const offset = cursor?.offset || 0;
-  scrollContainerElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
-  setPages(state.pages);
-  setTotalRows(state.totalRows);
-  setRowsPerPage(state.rowsPerPage);
-  setVisibleRows(
-    rangeToEntries(range, {
-      pages: state.pages,
-      totalRows: state.totalRows,
-      rowsPerPage: state.rowsPerPage,
-    })
-  );
+  scrollElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
+
+  params.setPagination({
+    pages: state.pages,
+    totalRows: state.totalRows,
+    rowsPerPage: state.rowsPerPage,
+    visibleRows: rangeToEntries(range, state),
+  });
 }
 
 function useWheel(element: HTMLDivElement | null, callback: (e: WheelEvent) => void) {
@@ -213,23 +190,27 @@ interface PagesWithCursor<Row> {
 }
 
 async function fetchPagesWithCursor<Row>(params: {
-  visibleRows: Entry<Row>[];
+  entries: Entry<Row>[];
   paginatedState: PaginatedState<Row>;
   onFetchPages: UseTableProps<Row>["onFetchPages"];
   getItemId: (item: Row) => Id;
 }): Promise<PagesWithCursor<Row>> {
-  const prevRows = params.visibleRows.map((row) => row.record);
-  const pagesIndexes = params.visibleRows.map((row) => row.pageIndex);
+  const { getItemId } = params;
+
+  const start = params.entries[0].recordIndex;
+  const end = params.entries.at(-1)?.recordIndex || start;
+  const range: Range = [start, end];
+
+  const pagesIndexes = params.entries.map((row) => row.pageIndex);
   const pages = await params.onFetchPages(pagesIndexes, params.paginatedState.rowsPerPage);
-  const newState = mergePagesToState(pages); // params.paginatedState
-  const range: Range = [params.visibleRows[0].recordIndex, params.visibleRows.at(-1)!.recordIndex];
-  const nextRows = rangeToEntries(range, newState).map((row) => row.record);
-  const cursor = calculateOffsetFromCursor({
-    prevArray: prevRows,
-    nextArray: nextRows,
-    getItemId: params.getItemId,
-  });
-  return { state: newState, cursor };
+  const state = mergePagesToState(pages); // params.paginatedState
+
+  const prevArray = params.entries.map((row) => row.record);
+  const nextArray = rangeToEntries(range, state).map((row) => row.record);
+
+  const cursor = calculateOffsetFromCursor({ prevArray, nextArray, getItemId });
+
+  return { state, cursor };
 }
 
 function rangeToEntries<Row>(range: Range, state: PaginatedState<Row>): Entry<Row>[] {
@@ -237,32 +218,25 @@ function rangeToEntries<Row>(range: Range, state: PaginatedState<Row>): Entry<Ro
   const length = end - start + 1;
   const entries: Entry<Row>[] = [];
   for (let index = 0; index < length; index++) {
-    const rowIndex = index + start;
-    const pageIndex = Math.floor(rowIndex / state.rowsPerPage);
+    const recordIndex = index + start;
+    const pageIndex = Math.floor(recordIndex / state.rowsPerPage);
     const page = state.pages[pageIndex];
-    const pageOffset = rowIndex % state.rowsPerPage;
-    const row = page?.records.at(pageOffset) || null;
-    entries.push({ record: row, recordIndex: rowIndex, pageIndex });
+    const pageOffset = recordIndex % state.rowsPerPage;
+    const record = page?.records.at(pageOffset) || null;
+    const entry: Entry<Row> = { record, recordIndex, pageIndex };
+    entries.push(entry);
   }
   return entries;
 }
 
 function mergePagesToState<Row>(
-  pages: PageResponse<Row>[],
+  rawPages: PageResponse<Row>[],
   prevPaginatedState?: PaginatedState<Row>
 ) {
-  if (!pages.length) return defaultPaginatedState;
-  const newPages = prevPaginatedState ? [...prevPaginatedState.pages] : [];
-  for (const page of pages) {
-    newPages[page.pageIndex] = page;
-  }
-  const totalRecords = pages[0].totalRecords;
-  const rowsPerPage = pages[0].pageSize;
-  return { pages: newPages, totalRows: totalRecords, rowsPerPage };
+  if (!rawPages.length) return defaultPagination;
+  const pages = prevPaginatedState ? [...prevPaginatedState.pages] : [];
+  for (const page of rawPages) pages[page.pageIndex] = page;
+  const totalRecords = rawPages[0].totalRecords;
+  const rowsPerPage = rawPages[0].pageSize;
+  return { pages, totalRows: totalRecords, rowsPerPage };
 }
-
-const defaultPaginatedState: PaginatedState<never> = {
-  pages: [],
-  totalRows: 10,
-  rowsPerPage: 10,
-};
