@@ -5,7 +5,7 @@ import { useAbortController } from "./use-abort-controller";
 import { useWheel } from "./use-wheel";
 import { TablePagination } from "../types/TablePagination";
 import { Id } from "../types/Id";
-import { updateTableState } from "../utils/update-table-state";
+import { onScrollFetch } from "../utils/on-scroll-fetch";
 import { PageResponse } from "../types/PageResponse";
 import { Entry } from "../types/Entry";
 
@@ -42,7 +42,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const updateState = async (params: { deltaY: number }) => {
     const controller = abortController.resetController();
     if (!scrollContainerElement) return;
-    await updateTableState<Row>({
+    await onScrollFetch<Row>({
       pagination,
       scrollElement: scrollContainerElement,
       deltaY: params.deltaY,

@@ -18,7 +18,7 @@ interface Params<Row> {
   onPaginationChange: Dispatch<SetStateAction<TablePagination<Row>>>;
 }
 
-export async function updateTableState<Row>(params: Params<Row>) {
+export async function onScrollFetch<Row>(params: Params<Row>) {
   const { scrollElement, deltaY, rowBuffer, rowPixelHeight, onFetchPages, getItemId } = params;
   if (!scrollElement) return;
 
