@@ -51,7 +51,7 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
       abortSignal: controller.signal,
       onFetchPages: props.onFetchPages,
       getItemId: props.getItemId,
-      setPagination,
+      onPaginationChange: setPagination,
     });
     abortController.resetController(controller);
   };

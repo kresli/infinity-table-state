@@ -12,11 +12,12 @@ interface Params<Row> {
   deltaY: number;
   rowBuffer: number;
   rowPixelHeight: number;
+  abortSignal: AbortSignal;
   onFetchPages: (pageIndexes: number[], pageSize: number) => Promise<PageResponse<Row>[]>;
   getItemId: (item: Row) => Id;
-  setPagination: Dispatch<SetStateAction<TablePagination<Row>>>;
-  abortSignal: AbortSignal;
+  onPaginationChange: Dispatch<SetStateAction<TablePagination<Row>>>;
 }
+
 export async function updateTableState<Row>(params: Params<Row>) {
   const { scrollElement, deltaY, rowBuffer, rowPixelHeight, onFetchPages, getItemId } = params;
   if (!scrollElement) return;
@@ -35,7 +36,7 @@ export async function updateTableState<Row>(params: Params<Row>) {
 
   const visibleEntries = rangeToEntries(range, params.pagination);
 
-  params.setPagination((prev) => ({ ...prev, visibleRows: visibleEntries }));
+  params.onPaginationChange((prev) => ({ ...prev, visibleRows: visibleEntries }));
 
   const fetchPromise = cursorFetch({
     entries: visibleEntries,
@@ -46,19 +47,12 @@ export async function updateTableState<Row>(params: Params<Row>) {
 
   let result: PagesWithCursor<Row>;
 
-  const abortPromise = new Promise<never>((_, reject) => {
-    params.abortSignal.addEventListener("abort", () =>
-      reject(new DOMException("aborted", "AbortError"))
-    );
-  });
+  const abortPromise = getAbortPromise(params.abortSignal);
 
   try {
     result = await Promise.race([fetchPromise, abortPromise]);
   } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      console.log("aborted");
-      return;
-    }
+    if (isAbortError(error)) return;
     throw error;
   }
 
@@ -67,10 +61,20 @@ export async function updateTableState<Row>(params: Params<Row>) {
   const offset = cursor?.offset || 0;
   scrollElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
 
-  params.setPagination({
+  params.onPaginationChange({
     pages: state.pages,
     totalRows: state.totalRows,
     rowsPerPage: state.rowsPerPage,
     visibleRows: rangeToEntries(range, state),
+  });
+}
+
+function isAbortError(error: unknown): error is DOMException {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function getAbortPromise(abortSignal: AbortSignal) {
+  return new Promise<never>((_, reject) => {
+    abortSignal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
   });
 }
