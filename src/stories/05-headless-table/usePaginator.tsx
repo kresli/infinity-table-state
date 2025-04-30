@@ -32,6 +32,7 @@ export function usePaginator<Row>(config: PaginatorConfig<Row>): UsePaginator<Ro
   const fetchPage = async (pageIndex: number) => {
     setFetchingPageIndexes((prev) => new Set([...prev, pageIndex]));
     const data = await config.fetchPageData(pageIndex, rowsPerPage);
+    console.log("Fetched page", pageIndex, data);
     setPages((prev) => {
       const newPages = [...prev];
       newPages[pageIndex] = data.records;

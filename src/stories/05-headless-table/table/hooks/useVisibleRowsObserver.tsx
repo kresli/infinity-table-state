@@ -1,13 +1,17 @@
 import { useClientRectObserver } from "./useClientRectObserver";
 import { useScrollTopObserver } from "./useScrollTopObserver";
 
-export function getVisibleRows(props: {
+export interface GetVisibleRowsProps {
   totalRows: number;
   rowPixelHeight: number;
   containerHeight: number;
   scrollTop: number;
   buffer: number;
-}): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
+}
+
+export function getVisibleRows(
+  props: GetVisibleRowsProps
+): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
   const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
 
   const absouluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);

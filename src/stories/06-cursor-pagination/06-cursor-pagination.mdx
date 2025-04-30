@@ -1,0 +1,15 @@
+import { Meta, Source } from "@storybook/blocks";
+import { Example } from "./Example";
+import code_example from "./Example.tsx?raw";
+
+<Meta title="Chapters/06 Cursor pagination" />
+
+# Cursor pagination
+
+<Example />
+
+<Source language="tsx" code={code_example} />
+
+## Cursor pagination
+
+Cursor pagination is a method of paginating through a dataset by using a unique identifier (cursor) to mark the position of the last item retrieved. This allows for efficient retrieval of data without the need for offset-based pagination, which can become slow with large datasets.

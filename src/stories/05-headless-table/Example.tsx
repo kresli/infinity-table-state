@@ -69,10 +69,7 @@ export function Example() {
     onVisibleRowsChange,
   });
 
-  useOnMount(async () => {
-    await paginator.fetchPage(0);
-    table.forceRecalculateVisibleRows();
-  });
+  useOnMount(() => onVisibleRowsChange([0, 1]));
 
   return (
     <div className="flex flex-col gap-2">
