@@ -1,12 +1,10 @@
 import { Resizer } from "./Resizer";
 import { PagesLoadingStatus } from "./PagesLoadingStatus";
-import { Column } from "./table/types/Column";
 import { Row } from "./Row";
-import { useTable } from "./table/hooks/useTable";
-import { Table } from "./table";
+import { Table, useTable, Column } from "./table";
 import { PropsWithChildren, useState } from "react";
 import clsx from "clsx";
-import { apiDeleteRecord, apiGetPage } from "./utils/fake-server";
+import { apiDeleteRecord, apiGetPage } from "./helpers/fake-server";
 
 const columns: Column<Row>[] = [
   {

@@ -1,5 +1,5 @@
 import { ReactElement, CSSProperties } from "react";
-import { UseTable } from "../hooks/useTable";
+import { UseTable } from "../hooks/use-table";
 
 interface BodyProps<Row> {
   state: UseTable<Row>;

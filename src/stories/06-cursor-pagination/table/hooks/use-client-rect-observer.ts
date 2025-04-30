@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { useLiveRef } from "./useLiveRef";
+import { useLiveRef } from "./use-live-ref";
 
 export function useClientRectObserver(
   element: HTMLDivElement | null,

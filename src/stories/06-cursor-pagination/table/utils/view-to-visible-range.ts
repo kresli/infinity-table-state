@@ -1,4 +1,6 @@
-export interface GetVisibleRowsProps {
+import { Range } from "../types/Range";
+
+interface Params {
   totalRows: number;
   rowPixelHeight: number;
   containerHeight: number;
@@ -6,10 +8,8 @@ export interface GetVisibleRowsProps {
   buffer: number;
 }
 
-export function viewToVisibleRange(
-  props: GetVisibleRowsProps
-): [firstVisibleRowIndex: number, lastVisibleRowIndex: number] {
-  const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = props;
+export function viewToVisibleRange(params: Params): Range {
+  const { totalRows, rowPixelHeight, containerHeight, scrollTop, buffer } = params;
 
   const absoluteFirstVisibleRowIndex = Math.floor(scrollTop / rowPixelHeight);
   const firstVisibleRowIndex = Math.max(0, absoluteFirstVisibleRowIndex - buffer);
