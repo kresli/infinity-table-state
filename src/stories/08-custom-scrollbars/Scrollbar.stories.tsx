@@ -124,36 +124,69 @@ function useScroller(props: {
     const scrollbar = props.scrollbarElement;
     if (!content || !container || !scrollbar) return;
 
-    const contentWidth = content.getBoundingClientRect().width;
-    const containerWidth = container.getBoundingClientRect().width;
-    const scrollbarWidth = scrollbar.getBoundingClientRect().width;
+    const contentRect = content.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const scrollbarRect = scrollbar.getBoundingClientRect();
 
-    const minScrollLeft = containerWidth - contentWidth;
-    const maxScrollLeft = 0;
-
-    const contentToScrollbarRatio = contentWidth / scrollbarWidth;
+    const contentToScrollbarRatio = contentRect.width / scrollbarRect.width;
     const deltaX = event.deltaX;
     const deltaY = event.deltaY;
 
     setScrollState((prev) => {
-      const scrollLeft = clamp(prev.container.scrollLeft + deltaX, minScrollLeft, maxScrollLeft);
-      const scrollTop = clamp(
-        prev.container.scrollTop + deltaY,
-        0,
-        content.getBoundingClientRect().height
-      );
+      const container = calculateScrolls({
+        prev: prev.container,
+        deltaX,
+        deltaY,
+        bounds: {
+          minLeft: containerRect.width - contentRect.width,
+          maxLeft: 0,
+          minTop: 0,
+          maxTop: contentRect.height,
+        },
+      });
+
+      const scrollbar = calculateScrolls({
+        prev: prev.scrollbar,
+        deltaX: -deltaX / contentToScrollbarRatio,
+        deltaY: 0,
+        bounds: {
+          minLeft: 0,
+          maxLeft: scrollbarRect.width - containerRect.width / contentToScrollbarRatio,
+          minTop: 0,
+          maxTop: 0,
+        },
+      });
 
       return {
-        container: { scrollLeft, scrollTop },
+        container,
         scrollbar: {
-          scrollLeft: -scrollLeft / contentToScrollbarRatio,
-          scrollTop: 0,
-          width: containerWidth / contentToScrollbarRatio,
+          ...scrollbar,
+          width: containerRect.width / contentToScrollbarRatio,
         },
       };
     });
   });
   return scrollState;
+}
+
+type ScrollBounds = {
+  minLeft: number;
+  maxLeft: number;
+  minTop: number;
+  maxTop: number;
+};
+
+type ScrollInput = {
+  prev: { scrollLeft: number; scrollTop: number };
+  deltaX: number;
+  deltaY: number;
+  bounds: ScrollBounds;
+};
+
+function calculateScrolls({ prev, deltaX, deltaY, bounds }: ScrollInput) {
+  const scrollLeft = clamp(prev.scrollLeft + deltaX, bounds.minLeft, bounds.maxLeft);
+  const scrollTop = clamp(prev.scrollTop + deltaY, bounds.minTop, bounds.maxTop);
+  return { scrollLeft, scrollTop };
 }
 
 function useWheel<T extends HTMLElement>(element: T | null, cb: (event: WheelEvent) => void) {
