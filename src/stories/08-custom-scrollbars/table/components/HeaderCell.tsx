@@ -1,0 +1,21 @@
+import { CSSProperties } from "react";
+import { Column } from "../types/Column";
+import { DivProps } from "../types/DivProps";
+
+interface HeaderCellProps<Row> extends DivProps {
+  column: Column<Row>;
+}
+export function HeaderCell<Row>(props: HeaderCellProps<Row>) {
+  const { column, children, ...htmlProps } = props;
+  const style: CSSProperties = {
+    width: column.width,
+    maxWidth: column.width,
+    minWidth: column.width,
+    flex: 1,
+  };
+  return (
+    <div style={style} {...htmlProps}>
+      {children}
+    </div>
+  );
+}
