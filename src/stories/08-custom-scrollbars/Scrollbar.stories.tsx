@@ -1,204 +1,160 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { use, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useLayoutEffect, useRef, useState } from "react";
 import { useLiveRef } from "./table/hooks/use-live-ref";
 
-const meta: Meta<typeof VirtualContainer> = {
+const meta: Meta<typeof ProjectCanvas> = {
   title: "Components/08-Scrollbar",
-  component: VirtualContainer,
+  component: ProjectCanvas,
   parameters: {
     layout: "fullscreen",
   },
 };
 
 export default meta;
-type Story = StoryObj<typeof VirtualContainer>;
+type Story = StoryObj<typeof ProjectCanvas>;
 
-export const Default: Story = {
-  args: {
-    containerHeight: 500,
-    totalRows: 20,
-    rowHeight: 50,
-    buffer: 1,
-  },
-  render: (props) => <VirtualContainer {...props} />,
+export const ScrollbarExmaple: Story = {
+  render: () => <ProjectCanvas />,
 };
 
-function VirtualContainer(props: {
-  containerHeight: number;
-  totalRows: number;
-  rowHeight: number;
-  buffer: number;
-}) {
+function ProjectCanvas() {
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
   const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
-  const [scrollbarElement, setScrollbarElement] = useState<HTMLDivElement | null>(null);
+  const [contentPos, setContentPos] = useState<Point>({ x: 0, y: 0 });
 
-  const scroller = useScroller({
-    containerElement,
-    contentElement,
-    scrollbarElement,
-  });
-
-  console.log(scroller.scrollbar.scrollLeft);
+  useLayoutEffect(() => {
+    if (!containerElement || !contentElement) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const containerRect = containerElement.getBoundingClientRect();
+      const contentRect = contentElement.getBoundingClientRect();
+      setContentPos((prev) => {
+        const newX = Math.max(
+          Math.min(prev.x - e.deltaX, 0),
+          -contentRect.width + containerRect.width
+        );
+        const newY = Math.max(
+          Math.min(prev.y - e.deltaY, 0),
+          -contentRect.height + containerRect.height
+        );
+        return { x: newX, y: newY };
+      });
+    };
+    containerElement.addEventListener("wheel", onWheel);
+    return () => {
+      containerElement.removeEventListener("wheel", onWheel);
+    };
+  }, [containerElement, contentElement]);
 
   return (
     <div className="fixed w-full h-full flex items-center justify-center flex-col gap-2">
-      <div
-        ref={setContainerElement}
-        style={{ height: 100, width: 400 }}
-        className="relative bg-gray-200 border"
-      >
+      <div className="grid grid-cols-2 gap-2" style={{ gridTemplateColumns: "1fr auto" }}>
         <div
-          ref={setContentElement}
-          style={{ width: 800, left: scroller.container.scrollLeft }}
-          className="absolute h-full bg-amber-200"
-        />
-      </div>
-      <div
-        ref={setScrollbarElement}
-        style={{
-          width: 128,
-          height: 24,
-        }}
-        className="bg-gray-200 border relative"
-      >
-        <div
+          ref={setContainerElement}
           style={{
-            height: "100%",
-            width: scroller.scrollbar.width,
-            left: scroller.scrollbar.scrollLeft,
+            width: 500,
+            height: 300,
           }}
-          className="absolute bg-blue-400 border border-blue-800 hover:bg-blue-500"
+          className="bg-amber-200 border relative overflow-clip"
+        >
+          <div className="absolute" style={{ left: contentPos.x, top: contentPos.y }}>
+            <div
+              ref={setContentElement}
+              style={{ width: 1000, height: 600 }}
+              className="grid grid-cols-10"
+            >
+              {Array.from({ length: 100 }).map((_, index) => (
+                <div
+                  className="border border-black/20 flex justify-center items-center"
+                  key={index}
+                >
+                  {index}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <Scrollbar
+          direction="vertical"
+          contentElement={contentElement}
+          containerElement={containerElement}
+        />
+        <Scrollbar
+          direction="horizontal"
+          contentElement={contentElement}
+          containerElement={containerElement}
         />
       </div>
     </div>
   );
 }
 
-function projectToSize(
-  point: [x: number, y: number],
-  sourceSize: [width: number, height: number],
-  targetSize: [width: number, height: number]
-): [x: number, y: number] {
-  const [sourceWidth, sourceHeight] = sourceSize;
-  const [targetWidth, targetHeight] = targetSize;
-  const [x, y] = point;
-  const xRatio = targetWidth / sourceWidth;
-  const yRatio = targetHeight / sourceHeight;
-  return [x * xRatio, y * yRatio];
-}
-
-function useScroller(props: {
+function Scrollbar(props: {
+  direction: "horizontal" | "vertical";
+  contentElement: HTMLElement | null;
   containerElement: HTMLDivElement | null;
-  contentElement: HTMLDivElement | null;
-  scrollbarElement: HTMLDivElement | null;
 }) {
-  const contentElementRef = useLiveRef(props.contentElement);
-  const [scrollState, setScrollState] = useState({
-    container: {
-      scrollTop: 0,
-      scrollLeft: 0,
-    },
-    scrollbar: {
-      scrollTop: 0,
-      scrollLeft: 0,
-      width: 0,
-    },
+  const [{ a, d }, setThumb] = useState({ a: { x: 0, y: 0 }, d: { x: 0, y: 0 } });
+  const height = 10;
+  const isHorizontal = props.direction === "horizontal";
+
+  useMutationObserver(props.containerElement, () => {
+    if (!props.containerElement || !props.contentElement) return;
+    const contentRect = props.contentElement.getBoundingClientRect();
+    const containerRect = props.containerElement.getBoundingClientRect();
+
+    const topLeft = { x: containerRect.x, y: containerRect.y };
+    const bottomRight = { x: containerRect.right, y: containerRect.bottom };
+
+    const thumbA = projectPoint(topLeft, contentRect, containerRect);
+    const thumbD = projectPoint(bottomRight, contentRect, containerRect);
+
+    setThumb({ a: thumbA, d: thumbD });
   });
-  // useWheel(props.containerElement, (event) => {
-  //     event.preventDefault();
-  //     const contentElement = contentElementRef.current;
-  //     const containerElement = props.containerElement;
-  //     const scrollbarElement = props.scrollbarElement;
-  //     if (!contentElement || !containerElement || !scrollbarElement) return;
-  //     setScrollState((prev) => {
-  //       const { deltaX, deltaY } = event;
-  //       const
-  //     });
-  //   });
-  useWheel(props.containerElement, (event) => {
-    event.preventDefault();
 
-    const content = contentElementRef.current;
-    const container = props.containerElement;
-    const scrollbar = props.scrollbarElement;
-    if (!content || !container || !scrollbar) return;
-
-    const contentRect = content.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const scrollbarRect = scrollbar.getBoundingClientRect();
-
-    const contentToScrollbarRatio = contentRect.width / scrollbarRect.width;
-    const deltaX = event.deltaX;
-    const deltaY = event.deltaY;
-
-    setScrollState((prev) => {
-      const container = calculateScrolls({
-        prev: prev.container,
-        deltaX,
-        deltaY,
-        bounds: {
-          minLeft: containerRect.width - contentRect.width,
-          maxLeft: 0,
-          minTop: 0,
-          maxTop: contentRect.height,
-        },
-      });
-
-      const scrollbar = calculateScrolls({
-        prev: prev.scrollbar,
-        deltaX: -deltaX / contentToScrollbarRatio,
-        deltaY: 0,
-        bounds: {
-          minLeft: 0,
-          maxLeft: scrollbarRect.width - containerRect.width / contentToScrollbarRatio,
-          minTop: 0,
-          maxTop: 0,
-        },
-      });
-
-      return {
-        container,
-        scrollbar: {
-          ...scrollbar,
-          width: containerRect.width / contentToScrollbarRatio,
-        },
-      };
-    });
-  });
-  return scrollState;
+  return (
+    <div
+      style={{
+        width: props.direction === "horizontal" ? "100%" : height,
+        height: props.direction === "horizontal" ? height : "100%",
+      }}
+      className="w-full h-4 bg-gray-200 relative"
+    >
+      <div
+        className="h-4 absolute bg-blue-600"
+        style={{
+          left: isHorizontal ? a.x : 0,
+          top: isHorizontal ? 0 : a.y,
+          width: isHorizontal ? d.x - a.x : "100%",
+          height: isHorizontal ? "100%" : d.y - a.y,
+        }}
+      />
+    </div>
+  );
 }
 
-type ScrollBounds = {
-  minLeft: number;
-  maxLeft: number;
-  minTop: number;
-  maxTop: number;
-};
-
-type ScrollInput = {
-  prev: { scrollLeft: number; scrollTop: number };
-  deltaX: number;
-  deltaY: number;
-  bounds: ScrollBounds;
-};
-
-function calculateScrolls({ prev, deltaX, deltaY, bounds }: ScrollInput) {
-  const scrollLeft = clamp(prev.scrollLeft + deltaX, bounds.minLeft, bounds.maxLeft);
-  const scrollTop = clamp(prev.scrollTop + deltaY, bounds.minTop, bounds.maxTop);
-  return { scrollLeft, scrollTop };
-}
-
-function useWheel<T extends HTMLElement>(element: T | null, cb: (event: WheelEvent) => void) {
-  const ref = useLiveRef(cb);
+function useMutationObserver(element: HTMLElement | null, callback: () => void) {
+  const callbackRef = useLiveRef(callback);
   useLayoutEffect(() => {
     if (!element) return;
-    const onWheel = (event: WheelEvent) => ref.current(event);
-    element.addEventListener("wheel", onWheel);
-    return () => void element.removeEventListener("wheel", onWheel);
-  }, [element, ref]);
+    const observer = new MutationObserver(() => callbackRef.current());
+    observer.observe(element, { attributes: true, childList: true, subtree: true });
+    callbackRef.current();
+    return () => observer.disconnect();
+  }, [callbackRef, element]);
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
+interface Point {
+  x: number;
+  y: number;
+}
+
+function projectPoint(point: Point, fromRect: DOMRect, toRect: DOMRect): Point {
+  if (!fromRect.width || !fromRect.height) return { x: 0, y: 0 };
+  const relativeX = (point.x - fromRect.left) / fromRect.width;
+  const relativeY = (point.y - fromRect.top) / fromRect.height;
+  return {
+    x: relativeX * toRect.width,
+    y: relativeY * toRect.height,
+  };
 }
