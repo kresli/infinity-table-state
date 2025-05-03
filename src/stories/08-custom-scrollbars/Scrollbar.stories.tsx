@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { forwardRef, useLayoutEffect, useRef, useState } from "react";
 import { useLiveRef } from "./table/hooks/use-live-ref";
+import { set } from "mobx";
 
 const meta: Meta<typeof ProjectCanvas> = {
   title: "Components/08-Scrollbar",
@@ -78,11 +79,13 @@ function ProjectCanvas() {
           direction="vertical"
           contentElement={contentElement}
           containerElement={containerElement}
+          onScroll={(value) => setContentPos((prev) => ({ ...prev, y: prev.y + value }))}
         />
         <Scrollbar
           direction="horizontal"
           contentElement={contentElement}
           containerElement={containerElement}
+          onScroll={(value) => setContentPos((prev) => ({ ...prev, x: prev.x + value }))}
         />
       </div>
     </div>
@@ -93,7 +96,10 @@ function Scrollbar(props: {
   direction: "horizontal" | "vertical";
   contentElement: HTMLElement | null;
   containerElement: HTMLDivElement | null;
+  onScroll: (value: number) => void;
 }) {
+  const thumbtrackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
   const [{ a, d }, setThumb] = useState({ a: { x: 0, y: 0 }, d: { x: 0, y: 0 } });
   const height = 10;
   const isHorizontal = props.direction === "horizontal";
@@ -112,8 +118,27 @@ function Scrollbar(props: {
     setThumb({ a: thumbA, d: thumbD });
   });
 
+  const onMouseDown = useOnDrag({
+    onDrag: ({ dragPoint, diffPoin, moveByPoint }) => {
+      if (!props.containerElement || !props.contentElement) return;
+      if (!thumbtrackRef.current || !thumbRef.current) return;
+      const contentRect = props.contentElement.getBoundingClientRect();
+      const containerRect = props.containerElement.getBoundingClientRect();
+      const scaleX = containerRect.width / (d.x - a.x);
+      const scaleY = containerRect.height / (d.y - a.y);
+      console.log("scaleX", scaleX, "scaleY", scaleY);
+      const horizontalMove = -moveByPoint.x * scaleX;
+      const verticalMove = -moveByPoint.y * scaleY;
+      // const newPoint = projector.clientSourceToTarget(moveByPoint);
+      console.log("newPoint", newPoint);
+      console.log("diffPoin", horizontalMove);
+      props.onScroll(isHorizontal ? horizontalMove : verticalMove);
+    },
+  });
+
   return (
     <div
+      ref={thumbtrackRef}
       style={{
         width: props.direction === "horizontal" ? "100%" : height,
         height: props.direction === "horizontal" ? height : "100%",
@@ -121,7 +146,9 @@ function Scrollbar(props: {
       className="w-full h-4 bg-gray-200 relative"
     >
       <div
-        className="h-4 absolute bg-blue-600"
+        ref={thumbRef}
+        onMouseDown={onMouseDown}
+        className="h-4 absolute bg-blue-600 hover:bg-blue-700"
         style={{
           left: isHorizontal ? a.x : 0,
           top: isHorizontal ? 0 : a.y,
@@ -131,6 +158,69 @@ function Scrollbar(props: {
       />
     </div>
   );
+}
+
+interface ProjectroRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+class Projector {
+  private source: ProjectroRect;
+  private target: ProjectroRect;
+  private scaleX: number;
+  private scaleY: number;
+  constructor(source: ProjectroRect, target: ProjectroRect) {
+    this.source = source;
+    this.target = target;
+    this.scaleX = target.width / source.width;
+    this.scaleY = target.height / source.height;
+  }
+  clientSourceToTarget(point: Point): Point {
+    const relativeX = (point.x - this.source.x) / this.source.width;
+    const relativeY = (point.y - this.source.y) / this.source.height;
+    return {
+      x: this.target.x + relativeX * this.target.width,
+      y: this.target.y + relativeY * this.target.height,
+    };
+  }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(value, max));
+}
+
+function useOnDrag(config: {
+  onDrag: (data: {
+    startPoint: Point;
+    dragPoint: Point;
+    diffPoint: Point;
+    moveByPoint: Point;
+  }) => void;
+}) {
+  const configRef = useLiveRef(config);
+  return (mouseDownEvt: React.MouseEvent) => {
+    mouseDownEvt.preventDefault();
+    const startX = mouseDownEvt.clientX;
+    const startY = mouseDownEvt.clientY;
+    const onMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      configRef.current.onDrag({
+        startPoint: { x: startX, y: startY },
+        dragPoint: { x: e.clientX, y: e.clientY },
+        diffPoint: { x: e.clientX - startX, y: e.clientY - startY },
+        moveByPoint: { x: e.movementX, y: e.movementY },
+      });
+    };
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 }
 
 function useMutationObserver(element: HTMLElement | null, callback: () => void) {
