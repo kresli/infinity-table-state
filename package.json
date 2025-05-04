@@ -43,6 +43,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "eslint-plugin-storybook": "^0.12.0",
     "globals": "^15.15.0",
+    "jsdom": "^26.1.0",
     "playwright": "^1.51.1",
     "seedrandom": "^3.0.5",
     "storybook": "^8.6.12",
