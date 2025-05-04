@@ -100,6 +100,7 @@ function ScrollbarHorizontal(props: {
   contentPos: Point;
   onContentPos: (position: Point) => void;
 }) {
+  const minThumbWidth = 10;
   const { contentRect, viewportRect } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -108,8 +109,23 @@ function ScrollbarHorizontal(props: {
   const trackRect = useClientRect(trackRef.current);
   const thumbRect = useClientRect(thumbRef.current);
 
-  const contentToTrack = new Projector(contentRect, trackRect);
-  const trackToContent = new Projector(trackRect, contentRect);
+  const contentToViewport = new Projector(contentRect, viewportRect);
+
+  // thumb without minWidth
+  const thumbOriginal = new Projector(contentRect, trackRect).projectClientPositionRect(
+    viewportRect
+  );
+  const scaleX = contentToViewport.scaleX;
+
+  const trackWidth =
+    thumbOriginal.width >= minThumbWidth
+      ? trackRect.width
+      : trackRect.width - (minThumbWidth - thumbOriginal.width) / scaleX;
+
+  const updatedTrack = new DOMRect(trackRect.x, trackRect.y, trackWidth, trackRect.height);
+
+  const contentToTrack = new Projector(contentRect, updatedTrack);
+  const trackToContent = new Projector(updatedTrack, contentRect);
 
   const thumb = contentToTrack.projectClientPositionRect(viewportRect);
 
@@ -118,6 +134,7 @@ function ScrollbarHorizontal(props: {
     const downEventClientX = downEvt.clientX;
     const xOffset = downEventClientX - thumbRect.x;
     return (e: MouseEvent) => {
+      e.preventDefault();
       const x = e.clientX - xOffset;
       const y = 0;
       const position = trackToContent.projectClientPositionPoint({ x, y });
@@ -129,6 +146,7 @@ function ScrollbarHorizontal(props: {
     left: thumb.x,
     top: 0,
     width: thumb.width,
+    minWidth: minThumbWidth,
     height: "100%",
   };
 
@@ -162,14 +180,4 @@ function useMutationObserver(element: HTMLElement | null, callback: () => void) 
 interface Point {
   x: number;
   y: number;
-}
-
-function projectPoint(point: Point, fromRect: DOMRect, toRect: DOMRect): Point {
-  if (!fromRect.width || !fromRect.height) return { x: 0, y: 0 };
-  const relativeX = (point.x - fromRect.left) / fromRect.width;
-  const relativeY = (point.y - fromRect.top) / fromRect.height;
-  return {
-    x: relativeX * toRect.width,
-    y: relativeY * toRect.height,
-  };
 }

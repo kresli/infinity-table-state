@@ -16,8 +16,8 @@ export interface ProjectorRect {
 export class Projector {
   private source: ProjectorRect;
   private target: ProjectorRect;
-  private scaleX: number;
-  private scaleY: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
   constructor(source: ProjectorRect, target: ProjectorRect) {
     this.source = source;
     this.target = target;
@@ -25,6 +25,24 @@ export class Projector {
     this.scaleY = this.target.height / this.source.height;
     if (isNaN(this.scaleX)) this.scaleX = 0;
     if (isNaN(this.scaleY)) this.scaleY = 0;
+  }
+
+  localToLocalX(x: number): number {
+    if (!this.source.width) return 0;
+    const relativeX = x / this.source.width;
+    return relativeX * this.target.width;
+  }
+
+  projectClientPositionY(y: number): number {
+    if (!this.source.height) return 0;
+    const relativeY = (y - this.source.y) / this.source.height;
+    return relativeY * this.target.height;
+  }
+
+  projectClientPositionX(x: number): number {
+    if (!this.source.width) return 0;
+    const relativeX = (x - this.source.x) / this.source.width;
+    return relativeX * this.target.width;
   }
 
   projectClientPositionPoint(point: Point): Point {
