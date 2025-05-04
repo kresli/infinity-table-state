@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { useLiveRef } from "./table/hooks/use-live-ref";
-import { Projector } from "./table/utils/projector";
+import { Projector, ProjectorRect } from "./table/utils/projector";
 import { useClientRect } from "./table/hooks/useClientRect";
 import { useOnDrag } from "./table/hooks/use-on-drag";
 import { clamp } from "./table/utils/clamp";
@@ -111,21 +111,20 @@ function ScrollbarHorizontal(props: {
 
   const contentToViewport = new Projector(contentRect, viewportRect);
 
-  // thumb without minWidth
-  const thumbOriginal = new Projector(contentRect, trackRect).projectClientPositionRect(
-    viewportRect
-  );
-  const scaleX = contentToViewport.scaleX;
+  let contentToTrack = new Projector(contentRect, trackRect);
 
-  const trackWidth =
-    thumbOriginal.width >= minThumbWidth
-      ? trackRect.width
-      : trackRect.width - (minThumbWidth - thumbOriginal.width) / scaleX;
+  const originalThumbnail = contentToTrack.projectClientPositionRect(viewportRect);
 
-  const updatedTrack = new DOMRect(trackRect.x, trackRect.y, trackWidth, trackRect.height);
+  const diffTrackWidth =
+    originalThumbnail.width >= minThumbWidth
+      ? 0
+      : -(minThumbWidth - originalThumbnail.width) / contentToViewport.scaleX;
 
-  const contentToTrack = new Projector(contentRect, updatedTrack);
-  const trackToContent = new Projector(updatedTrack, contentRect);
+  const diffTrack = new DOMRect(0, 0, diffTrackWidth, 0);
+
+  contentToTrack = contentToTrack.addTarget(diffTrack);
+
+  const trackToContent = new Projector(trackRect, contentRect).addSource(diffTrack);
 
   const thumb = contentToTrack.projectClientPositionRect(viewportRect);
 
