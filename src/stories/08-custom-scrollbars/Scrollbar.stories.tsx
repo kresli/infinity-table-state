@@ -100,7 +100,7 @@ function ScrollbarHorizontal(props: {
   contentPos: Point;
   onContentPos: (position: Point) => void;
 }) {
-  const minThumbWidth = 10;
+  const minThumbWidth = 400;
   const { contentRect, viewportRect } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -109,20 +109,19 @@ function ScrollbarHorizontal(props: {
   const trackRect = useClientRect(trackRef.current);
   const thumbRect = useClientRect(thumbRef.current);
 
-  const contentToViewport = new Projector(contentRect, viewportRect);
+  const noMinContentToTrack = new Projector(contentRect, trackRect);
 
-  let contentToTrack = new Projector(contentRect, trackRect);
+  const noMinThumbnail = noMinContentToTrack.projectClientPositionRect(viewportRect);
 
-  const originalThumbnail = contentToTrack.projectClientPositionRect(viewportRect);
+  const { scaleX } = new Projector(contentRect, viewportRect);
 
-  const diffTrackWidth =
-    originalThumbnail.width >= minThumbWidth
-      ? 0
-      : -(minThumbWidth - originalThumbnail.width) / contentToViewport.scaleX;
+  const diffTrackWidth = Math.max(minThumbWidth - noMinThumbnail.width, 0) / scaleX;
 
-  const diffTrack = new DOMRect(0, 0, diffTrackWidth, 0);
+  const diffTrack = new DOMRect(0, 0, -diffTrackWidth, 0);
 
-  contentToTrack = contentToTrack.addTarget(diffTrack);
+  // ==
+
+  const contentToTrack = noMinContentToTrack.addTarget(diffTrack);
 
   const trackToContent = new Projector(trackRect, contentRect).addSource(diffTrack);
 
