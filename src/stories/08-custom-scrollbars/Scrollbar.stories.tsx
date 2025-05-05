@@ -102,7 +102,6 @@ function ScrollbarHorizontal(props: {
   thumbMinWidth: number;
   onContentPos: (position: Point) => void;
 }) {
-  // const thumbMinWidth = 400;
   const { contentRect, viewportRect, thumbMinWidth } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -111,7 +110,7 @@ function ScrollbarHorizontal(props: {
   const trackRect = useClientRect(trackRef.current);
   const thumbRect = useClientRect(thumbRef.current);
 
-  const { thumb, trackToContent, thumbWidth } = projectTrackThumb({
+  const { trackToContent, thumbWidth, thumbX } = projectTrackThumb({
     contentRect,
     trackRect,
     viewportRect,
@@ -132,7 +131,7 @@ function ScrollbarHorizontal(props: {
   });
 
   const thumbStyle: CSSProperties = {
-    left: thumb.x,
+    left: thumbX,
     top: 0,
     width: thumbWidth,
     // width: thumb.width,
@@ -164,11 +163,29 @@ function projectTrackThumb(params: {
   thumbMinHeight?: number;
 }): {
   trackToContent: Projector;
-  thumb: DOMRect;
   thumbWidth: number;
+  thumbHeight: number;
+  thumbX: number;
+  thumbY: number;
 } {
   const { contentRect, trackRect, viewportRect, thumbMinWidth, thumbMinHeight } = params;
   const baseContentToTrack = new Projector(contentRect, trackRect);
+  if (
+    !contentRect.width ||
+    !contentRect.height ||
+    !trackRect.width ||
+    !trackRect.height ||
+    !viewportRect.width ||
+    !viewportRect.height
+  ) {
+    return {
+      trackToContent: baseContentToTrack,
+      thumbWidth: 0,
+      thumbHeight: 0,
+      thumbX: 0,
+      thumbY: 0,
+    };
+  }
   const baseThumnail = baseContentToTrack.projectClientPositionRect(viewportRect);
   const { scaleX, scaleY } = new Projector(contentRect, viewportRect);
   const diffTrackWidth = !thumbMinWidth
@@ -182,20 +199,20 @@ function projectTrackThumb(params: {
     -diffTrackWidth,
     -diffTrackHeight
   );
-  console.log("diffTrackWidth", trackToContent);
-  const thumb = baseContentToTrack
+  const thumbPosition = baseContentToTrack
     .offsetTargetSize(-diffTrackWidth, -diffTrackHeight)
     .projectClientPositionRect(viewportRect);
 
-  console.log({ diffTrackWidth });
-
-  const x = baseContentToTrack
+  const thumbSize = baseContentToTrack
     .offsetTargetSize(diffTrackWidth, diffTrackHeight)
     .projectClientPositionRect(viewportRect);
 
-  const thumbWidth = x.width;
+  const thumbWidth = thumbSize.width;
+  const thumbHeight = thumbSize.height;
+  const thumbX = thumbPosition.x;
+  const thumbY = thumbPosition.y;
 
-  return { trackToContent, thumb, thumbWidth };
+  return { trackToContent, thumbWidth, thumbHeight, thumbX, thumbY };
 }
 
 function useMutationObserver(element: HTMLElement | null, callback: () => void) {
