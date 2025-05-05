@@ -86,7 +86,7 @@ function ProjectCanvas() {
         <ScrollbarHorizontal
           contentRect={contentRect}
           viewportRect={viewportRect}
-          onScrollChange={updateContentPosition}
+          onScrollChange={(x) => updateContentPosition({ x, y: contentPos.y })}
           thumbMinSize={10}
         />
       </div>
@@ -98,9 +98,8 @@ function ScrollbarHorizontal(props: {
   contentRect: DOMRect;
   viewportRect: DOMRect;
   thumbMinSize: number;
-  onScrollChange: (position: Point) => void;
+  onScrollChange: (value: number) => void;
 }) {
-  // const thumbMinWidth = 400;
   const { contentRect, viewportRect, thumbMinSize, onScrollChange } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -129,7 +128,7 @@ function ScrollbarHorizontal(props: {
       const delta = moveEvt.clientX - startClientX;
       const trackPos = Math.min(Math.max(startThumbX + delta, 0), trackRect.width - thumbSize);
       const newScrollOffset = proj.trackToContent(trackPos);
-      onScrollChange({ x: -newScrollOffset, y: 0 });
+      onScrollChange(-newScrollOffset);
     };
   });
 
