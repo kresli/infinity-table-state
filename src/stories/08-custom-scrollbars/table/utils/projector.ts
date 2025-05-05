@@ -3,32 +3,12 @@ interface Point {
   y: number;
 }
 
-export class ProjectorRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-  constructor(x: number, y: number, width: number, height: number) {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.left = x;
-    this.top = y;
-    this.right = x + width;
-    this.bottom = y + height;
-  }
-}
 export class Projector {
-  private source: ProjectorRect;
-  readonly target: ProjectorRect;
+  readonly source: DOMRect;
+  readonly target: DOMRect;
   readonly scaleX: number;
   readonly scaleY: number;
-  constructor(source: ProjectorRect, target: ProjectorRect) {
+  constructor(source: DOMRect, target: DOMRect) {
     this.source = source;
     this.target = target;
     this.scaleX = this.target.width / this.source.width;
@@ -38,11 +18,11 @@ export class Projector {
   }
 
   /**
-   * Returns a new Projector with the source rect expanded by the given ProjectorRect delta.
+   * Returns a new Projector with the source rect expanded by the given DOMRect delta.
    */
-  addSource(delta: ProjectorRect): Projector {
+  addSource(delta: DOMRect): Projector {
     const { x: dx, y: dy, width: dw, height: dh } = delta;
-    const expanded = new ProjectorRect(
+    const expanded = new DOMRect(
       this.source.x + dx,
       this.source.y + dy,
       this.source.width + dw,
@@ -51,9 +31,9 @@ export class Projector {
     return new Projector(expanded, this.target);
   }
 
-  addTarget(delta: Partial<ProjectorRect>): Projector {
+  addTarget(delta: Partial<DOMRect>): Projector {
     const { x: dx, y: dy, width: dw, height: dh } = delta;
-    const expanded = new ProjectorRect(
+    const expanded = new DOMRect(
       this.target.x + (dx ?? 0),
       this.target.y + (dy ?? 0),
       this.target.width + (dw ?? 0),
@@ -66,7 +46,7 @@ export class Projector {
   //  * Ensures that projecting `rect` produces at least `minWidth` in the target,
   //  * expanding the source's width if necessary.
   //  */
-  // ensureMinWidth(minWidth: number, rect: ProjectorRect): Projector {
+  // ensureMinWidth(minWidth: number, rect: DOMRect): Projector {
   //   const projected = this.projectClientPositionRect(rect);
   //   if (projected.width >= minWidth) {
   //     return this;
@@ -74,7 +54,7 @@ export class Projector {
   //   // Compute how many source pixels correspond to the missing target width
   //   const extraSourceWidth = (minWidth - projected.width) / this.scaleX;
   //   // Only expand width (no offset)
-  //   const delta = new ProjectorRect(0, 0, extraSourceWidth, 0);
+  //   const delta = new DOMRect(0, 0, extraSourceWidth, 0);
   //   return this.add(delta);
   // }
 
@@ -106,13 +86,11 @@ export class Projector {
     };
   }
 
-  projectClientPositionRect(rect: ProjectorRect): ProjectorRect {
+  projectClientPositionRect(rect: DOMRect): DOMRect {
     const x = (rect.x - this.source.x) * this.scaleX;
     const y = (rect.y - this.source.y) * this.scaleY;
     const width = rect.width * this.scaleX;
     const height = rect.height * this.scaleY;
-    const right = x + width;
-    const bottom = y + height;
-    return { x, y, width, height, left: x, top: y, right, bottom };
+    return new DOMRect(x, y, width, height);
   }
 }

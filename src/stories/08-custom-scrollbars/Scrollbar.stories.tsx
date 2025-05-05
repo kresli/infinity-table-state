@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { useLiveRef } from "./table/hooks/use-live-ref";
-import { Projector, ProjectorRect } from "./table/utils/projector";
+import { Projector } from "./table/utils/projector";
 import { useClientRect } from "./table/hooks/useClientRect";
 import { useOnDrag } from "./table/hooks/use-on-drag";
 import { clamp } from "./table/utils/clamp";
@@ -100,7 +100,7 @@ function ScrollbarHorizontal(props: {
   contentPos: Point;
   onContentPos: (position: Point) => void;
 }) {
-  const minThumbWidth = 400;
+  const thumbMinWidth = 400;
   const { contentRect, viewportRect } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -109,23 +109,12 @@ function ScrollbarHorizontal(props: {
   const trackRect = useClientRect(trackRef.current);
   const thumbRect = useClientRect(thumbRef.current);
 
-  const noMinContentToTrack = new Projector(contentRect, trackRect);
-
-  const noMinThumbnail = noMinContentToTrack.projectClientPositionRect(viewportRect);
-
-  const { scaleX } = new Projector(contentRect, viewportRect);
-
-  const diffTrackWidth = Math.max(minThumbWidth - noMinThumbnail.width, 0) / scaleX;
-
-  const diffTrack = new DOMRect(0, 0, -diffTrackWidth, 0);
-
-  // ==
-
-  const contentToTrack = noMinContentToTrack.addTarget(diffTrack);
-
-  const trackToContent = new Projector(trackRect, contentRect).addSource(diffTrack);
-
-  const thumb = contentToTrack.projectClientPositionRect(viewportRect);
+  const { thumb, trackToContent } = projectTrackThumb({
+    contentRect,
+    trackRect,
+    viewportRect,
+    thumbMinWidth,
+  });
 
   const onMouseDown = useOnDrag((downEvt) => {
     downEvt.preventDefault();
@@ -144,7 +133,7 @@ function ScrollbarHorizontal(props: {
     left: thumb.x,
     top: 0,
     width: thumb.width,
-    minWidth: minThumbWidth,
+    minWidth: thumbMinWidth,
     height: "100%",
   };
 
@@ -162,6 +151,28 @@ function ScrollbarHorizontal(props: {
       />
     </div>
   );
+}
+
+function projectTrackThumb(params: {
+  contentRect: DOMRect;
+  trackRect: DOMRect;
+  viewportRect: DOMRect;
+  thumbMinWidth: number;
+}): {
+  trackToContent: Projector;
+  thumb: DOMRect;
+} {
+  const { contentRect, trackRect, viewportRect, thumbMinWidth } = params;
+  const baseContentToTrack = new Projector(contentRect, trackRect);
+  const baseThumnail = baseContentToTrack.projectClientPositionRect(viewportRect);
+  const { scaleX } = new Projector(contentRect, viewportRect);
+  const diffTrackWidth = Math.max(thumbMinWidth - baseThumnail.width, 0) / scaleX;
+  const paddedTrackRect = new DOMRect(0, 0, -diffTrackWidth, 0);
+  const contentToTrack = baseContentToTrack.addTarget(paddedTrackRect);
+  const trackToContent = new Projector(trackRect, contentRect).addSource(paddedTrackRect);
+  const thumb = contentToTrack.projectClientPositionRect(viewportRect);
+
+  return { trackToContent, thumb };
 }
 
 function useMutationObserver(element: HTMLElement | null, callback: () => void) {
