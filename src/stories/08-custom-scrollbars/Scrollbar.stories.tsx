@@ -88,6 +88,7 @@ function ProjectCanvas() {
           viewportRect={viewportRect}
           contentPos={contentPos}
           onContentPos={updateContentPosition}
+          thumbMinWidth={400}
         />
       </div>
     </div>
@@ -98,10 +99,11 @@ function ScrollbarHorizontal(props: {
   contentRect: DOMRect;
   viewportRect: DOMRect;
   contentPos: Point;
+  thumbMinWidth: number;
   onContentPos: (position: Point) => void;
 }) {
-  const thumbMinWidth = 400;
-  const { contentRect, viewportRect } = props;
+  // const thumbMinWidth = 400;
+  const { contentRect, viewportRect, thumbMinWidth } = props;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const height = 10;
@@ -109,7 +111,7 @@ function ScrollbarHorizontal(props: {
   const trackRect = useClientRect(trackRef.current);
   const thumbRect = useClientRect(thumbRef.current);
 
-  const { thumb, trackToContent } = projectTrackThumb({
+  const { thumb, trackToContent, thumbWidth } = projectTrackThumb({
     contentRect,
     trackRect,
     viewportRect,
@@ -132,8 +134,9 @@ function ScrollbarHorizontal(props: {
   const thumbStyle: CSSProperties = {
     left: thumb.x,
     top: 0,
-    width: thumb.width,
-    minWidth: thumbMinWidth,
+    width: thumbWidth,
+    // width: thumb.width,
+    // minWidth: thumbMinWidth,
     height: "100%",
   };
 
@@ -157,22 +160,42 @@ function projectTrackThumb(params: {
   contentRect: DOMRect;
   trackRect: DOMRect;
   viewportRect: DOMRect;
-  thumbMinWidth: number;
+  thumbMinWidth?: number;
+  thumbMinHeight?: number;
 }): {
   trackToContent: Projector;
   thumb: DOMRect;
+  thumbWidth: number;
 } {
-  const { contentRect, trackRect, viewportRect, thumbMinWidth } = params;
+  const { contentRect, trackRect, viewportRect, thumbMinWidth, thumbMinHeight } = params;
   const baseContentToTrack = new Projector(contentRect, trackRect);
   const baseThumnail = baseContentToTrack.projectClientPositionRect(viewportRect);
-  const { scaleX } = new Projector(contentRect, viewportRect);
-  const diffTrackWidth = Math.max(thumbMinWidth - baseThumnail.width, 0) / scaleX;
-  const paddedTrackRect = new DOMRect(0, 0, -diffTrackWidth, 0);
-  const contentToTrack = baseContentToTrack.addTarget(paddedTrackRect);
-  const trackToContent = new Projector(trackRect, contentRect).addSource(paddedTrackRect);
-  const thumb = contentToTrack.projectClientPositionRect(viewportRect);
+  const { scaleX, scaleY } = new Projector(contentRect, viewportRect);
+  const diffTrackWidth = !thumbMinWidth
+    ? 0
+    : Math.max(thumbMinWidth - baseThumnail.width, 0) / scaleX;
+  const diffTrackHeight = !thumbMinHeight
+    ? 0
+    : Math.max(thumbMinHeight - baseThumnail.height, 0) / scaleY;
 
-  return { trackToContent, thumb };
+  const trackToContent = new Projector(trackRect, contentRect).offsetSourceSize(
+    -diffTrackWidth,
+    -diffTrackHeight
+  );
+  console.log("diffTrackWidth", trackToContent);
+  const thumb = baseContentToTrack
+    .offsetTargetSize(-diffTrackWidth, -diffTrackHeight)
+    .projectClientPositionRect(viewportRect);
+
+  console.log({ diffTrackWidth });
+
+  const x = baseContentToTrack
+    .offsetTargetSize(diffTrackWidth, diffTrackHeight)
+    .projectClientPositionRect(viewportRect);
+
+  const thumbWidth = x.width;
+
+  return { trackToContent, thumb, thumbWidth };
 }
 
 function useMutationObserver(element: HTMLElement | null, callback: () => void) {

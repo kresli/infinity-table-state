@@ -17,63 +17,24 @@ export class Projector {
     if (isNaN(this.scaleY)) this.scaleY = 0;
   }
 
-  /**
-   * Returns a new Projector with the source rect expanded by the given DOMRect delta.
-   */
-  addSource(delta: DOMRect): Projector {
-    const { x: dx, y: dy, width: dw, height: dh } = delta;
+  offsetTargetSize(x?: number, y?: number): Projector {
     const expanded = new DOMRect(
-      this.source.x + dx,
-      this.source.y + dy,
-      this.source.width + dw,
-      this.source.height + dh
-    );
-    return new Projector(expanded, this.target);
-  }
-
-  addTarget(delta: Partial<DOMRect>): Projector {
-    const { x: dx, y: dy, width: dw, height: dh } = delta;
-    const expanded = new DOMRect(
-      this.target.x + (dx ?? 0),
-      this.target.y + (dy ?? 0),
-      this.target.width + (dw ?? 0),
-      this.target.height + (dh ?? 0)
+      this.target.x,
+      this.target.y,
+      this.target.width + (x ?? 0),
+      this.target.height + (y ?? 0)
     );
     return new Projector(this.source, expanded);
   }
 
-  // /**
-  //  * Ensures that projecting `rect` produces at least `minWidth` in the target,
-  //  * expanding the source's width if necessary.
-  //  */
-  // ensureMinWidth(minWidth: number, rect: DOMRect): Projector {
-  //   const projected = this.projectClientPositionRect(rect);
-  //   if (projected.width >= minWidth) {
-  //     return this;
-  //   }
-  //   // Compute how many source pixels correspond to the missing target width
-  //   const extraSourceWidth = (minWidth - projected.width) / this.scaleX;
-  //   // Only expand width (no offset)
-  //   const delta = new DOMRect(0, 0, extraSourceWidth, 0);
-  //   return this.add(delta);
-  // }
-
-  localToLocalX(x: number): number {
-    if (!this.source.width) return 0;
-    const relativeX = x / this.source.width;
-    return relativeX * this.target.width;
-  }
-
-  projectClientPositionY(y: number): number {
-    if (!this.source.height) return 0;
-    const relativeY = (y - this.source.y) / this.source.height;
-    return relativeY * this.target.height;
-  }
-
-  projectClientPositionX(x: number): number {
-    if (!this.source.width) return 0;
-    const relativeX = (x - this.source.x) / this.source.width;
-    return relativeX * this.target.width;
+  offsetSourceSize(x?: number, y?: number): Projector {
+    const expanded = new DOMRect(
+      this.source.x,
+      this.source.y,
+      this.source.width + (x ?? 0),
+      this.source.height + (y ?? 0)
+    );
+    return new Projector(expanded, this.target);
   }
 
   projectClientPositionPoint(point: Point): Point {

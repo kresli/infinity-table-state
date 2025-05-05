@@ -96,10 +96,10 @@ test("substract", () => {
   });
 });
 
-test("projectClientPositionX", () => {
-  const sourceRect = new DOMRect(100, 0, 100, 100);
-  const targetRect = new DOMRect(100, 0, 200, 200);
-  const projector = new Projector(sourceRect, targetRect);
-  const projectedX = projector.projectClientPositionX(110);
-  expect(projectedX).toBe(20);
-});
+// test("projectClientPositionX", () => {
+//   const sourceRect = new DOMRect(100, 0, 100, 100);
+//   const targetRect = new DOMRect(100, 0, 200, 200);
+//   const projector = new Projector(sourceRect, targetRect);
+//   const projectedX = projector.projectClientPositionX(110);
+//   expect(projectedX).toBe(20);
+// });
