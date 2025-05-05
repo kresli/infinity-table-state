@@ -11,7 +11,7 @@ test("projectClientPositionRect", () => {
   const sourceRect = new DOMRect(0, 0, 100, 100);
   const targetRect = new DOMRect(0, 0, 200, 200);
   const projector = new Projector(sourceRect, targetRect);
-  const projectedRect = projector.projectClientPositionRect(rect);
+  const projectedRect = projector.clientPositionLocal(rect);
   expect(projectedRect).toEqual({
     x: 20,
     y: 20,
@@ -29,7 +29,7 @@ test("projectClientPositionRect with stretch", () => {
   const sourceRect = new DOMRect(0, 0, 100, 100);
   const targetRect = new DOMRect(0, 0, 300, 200);
   const projector = new Projector(sourceRect, targetRect);
-  const projectedRect = projector.projectClientPositionRect(rect);
+  const projectedRect = projector.clientPositionLocal(rect);
   expect(projectedRect).toEqual({
     x: 30,
     y: 20,
@@ -47,7 +47,7 @@ test("projectClientPositionRect with offset", () => {
   const sourceRect = new DOMRect(0, 0, 100, 100);
   const targetRect = new DOMRect(10, 10, 200, 200);
   const projector = new Projector(sourceRect, targetRect);
-  const projectedRect = projector.projectClientPositionRect(rect);
+  const projectedRect = projector.clientPositionLocal(rect);
   expect(projectedRect).toEqual({
     x: 20,
     y: 20,
@@ -65,7 +65,7 @@ test("both source and target offset are same", () => {
   const sourceRect = new DOMRect(10, 10, 100, 100);
   const targetRect = new DOMRect(10, 10, 200, 200);
   const projector = new Projector(sourceRect, targetRect);
-  const projectedRect = projector.projectClientPositionRect(rect);
+  const projectedRect = projector.clientPositionLocal(rect);
   expect(projectedRect).toEqual({
     x: 0,
     y: 0,
@@ -83,7 +83,7 @@ test("substract", () => {
   const sourceRect = new DOMRect(0, 0, 100, 100);
   const targetRect = new DOMRect(0, 0, 200, 200);
   const projector = new Projector(sourceRect, targetRect);
-  const projectedRect = projector.projectClientPositionRect(rect);
+  const projectedRect = projector.clientPositionLocal(rect);
   expect(projectedRect).toEqual({
     x: 20,
     y: 20,

@@ -37,7 +37,7 @@ export class Projector {
     return new Projector(expanded, this.target);
   }
 
-  projectClientPositionPoint(point: Point): Point {
+  clientPositionPoint(point: Point): Point {
     if (!this.source.width || !this.source.height) return { x: 0, y: 0 };
     const relativeX = (point.x - this.source.x) / this.source.width;
     const relativeY = (point.y - this.source.y) / this.source.height;
@@ -47,7 +47,15 @@ export class Projector {
     };
   }
 
-  projectClientPositionRect(rect: DOMRect): DOMRect {
+  clientPositionLocal(rect: DOMRect): DOMRect {
+    const x = (rect.x - this.source.x) * this.scaleX;
+    const y = (rect.y - this.source.y) * this.scaleY;
+    const width = rect.width * this.scaleX;
+    const height = rect.height * this.scaleY;
+    return new DOMRect(x, y, width, height);
+  }
+
+  localSourcePositionToLocalTarget(rect: DOMRect): DOMRect {
     const x = (rect.x - this.source.x) * this.scaleX;
     const y = (rect.y - this.source.y) * this.scaleY;
     const width = rect.width * this.scaleX;

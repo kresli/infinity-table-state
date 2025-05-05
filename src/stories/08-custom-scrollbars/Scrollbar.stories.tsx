@@ -83,6 +83,16 @@ function ProjectCanvas() {
           </div>
         </div>
         <div>i</div>
+        {/* <Scrollbar
+          contentRect={contentRect}
+          viewportRect={viewportRect}
+          contentPos={contentPos}
+          onContentPos={updateContentPosition}
+          thumbnailMinSize={400}
+          type="horizontal"
+        >{
+          () => <
+        }</Scrollbar> */}
         <ScrollbarHorizontal
           contentRect={contentRect}
           viewportRect={viewportRect}
@@ -104,13 +114,11 @@ function ScrollbarHorizontal(props: {
 }) {
   const { contentRect, viewportRect, thumbMinWidth } = props;
   const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
   const height = 10;
 
   const trackRect = useClientRect(trackRef.current);
-  const thumbRect = useClientRect(thumbRef.current);
 
-  const { trackToContent, thumbWidth, thumbX } = projectTrackThumb({
+  const { trackToContent, thumbWidth, thumbX, thumbClientX, thumbClientY } = projectTrackThumb({
     contentRect,
     trackRect,
     viewportRect,
@@ -119,14 +127,14 @@ function ScrollbarHorizontal(props: {
 
   const onMouseDown = useOnDrag((downEvt) => {
     downEvt.preventDefault();
-    const downEventClientX = downEvt.clientX;
-    const xOffset = downEventClientX - thumbRect.x;
+    const xOffset = downEvt.clientX - thumbClientX;
+    const yOffset = downEvt.clientY - thumbClientY;
     return (e: MouseEvent) => {
       e.preventDefault();
       const x = e.clientX - xOffset;
-      const y = 0;
-      const position = trackToContent.projectClientPositionPoint({ x, y });
-      props.onContentPos({ x: -position.x, y: position.y });
+      const y = e.clientY - yOffset;
+      const position = trackToContent.clientPositionPoint({ x, y });
+      props.onContentPos({ x: -position.x, y: -position.y });
     };
   });
 
@@ -134,8 +142,6 @@ function ScrollbarHorizontal(props: {
     left: thumbX,
     top: 0,
     width: thumbWidth,
-    // width: thumb.width,
-    // minWidth: thumbMinWidth,
     height: "100%",
   };
 
@@ -146,7 +152,6 @@ function ScrollbarHorizontal(props: {
       className="w-full h-4 bg-gray-200 relative"
     >
       <div
-        ref={thumbRef}
         onMouseDown={onMouseDown}
         className="h-4 absolute bg-blue-600 hover:bg-blue-700"
         style={thumbStyle}
@@ -167,6 +172,8 @@ function projectTrackThumb(params: {
   thumbHeight: number;
   thumbX: number;
   thumbY: number;
+  thumbClientX: number;
+  thumbClientY: number;
 } {
   const { contentRect, trackRect, viewportRect, thumbMinWidth, thumbMinHeight } = params;
   const baseContentToTrack = new Projector(contentRect, trackRect);
@@ -184,9 +191,11 @@ function projectTrackThumb(params: {
       thumbHeight: 0,
       thumbX: 0,
       thumbY: 0,
+      thumbClientX: 0,
+      thumbClientY: 0,
     };
   }
-  const baseThumnail = baseContentToTrack.projectClientPositionRect(viewportRect);
+  const baseThumnail = baseContentToTrack.clientPositionLocal(viewportRect);
   const { scaleX, scaleY } = new Projector(contentRect, viewportRect);
   const diffTrackWidth = !thumbMinWidth
     ? 0
@@ -201,18 +210,20 @@ function projectTrackThumb(params: {
   );
   const thumbPosition = baseContentToTrack
     .offsetTargetSize(-diffTrackWidth, -diffTrackHeight)
-    .projectClientPositionRect(viewportRect);
+    .clientPositionLocal(viewportRect);
 
   const thumbSize = baseContentToTrack
     .offsetTargetSize(diffTrackWidth, diffTrackHeight)
-    .projectClientPositionRect(viewportRect);
+    .clientPositionLocal(viewportRect);
 
   const thumbWidth = thumbSize.width;
   const thumbHeight = thumbSize.height;
   const thumbX = thumbPosition.x;
   const thumbY = thumbPosition.y;
+  const thumbClientX = trackRect.x - thumbX;
+  const thumbClientY = trackRect.y - thumbY;
 
-  return { trackToContent, thumbWidth, thumbHeight, thumbX, thumbY };
+  return { trackToContent, thumbWidth, thumbHeight, thumbX, thumbY, thumbClientX, thumbClientY };
 }
 
 function useMutationObserver(element: HTMLElement | null, callback: () => void) {
