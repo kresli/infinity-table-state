@@ -82,71 +82,84 @@ function ProjectCanvas() {
             </div>
           </div>
         </div>
-        <div>i</div>
-        <ScrollbarHorizontal
+        <Scrollbar
+          contentRect={contentRect}
+          viewportRect={viewportRect}
+          onScrollChange={(y) => updateContentPosition({ x: contentPos.x, y })}
+          thumbMinSize={200}
+          direction="vertical"
+        />
+        <Scrollbar
           contentRect={contentRect}
           viewportRect={viewportRect}
           onScrollChange={(x) => updateContentPosition({ x, y: contentPos.y })}
           thumbMinSize={10}
+          direction="horizontal"
         />
       </div>
     </div>
   );
 }
 
-function ScrollbarHorizontal(props: {
+function Scrollbar(props: {
   contentRect: DOMRect;
   viewportRect: DOMRect;
   thumbMinSize: number;
+  direction: "horizontal" | "vertical";
   onScrollChange: (value: number) => void;
 }) {
   const { contentRect, viewportRect, thumbMinSize, onScrollChange } = props;
+  const isHorizontal = props.direction === "horizontal";
   const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
   const height = 10;
 
   const trackRect = useClientRect(trackRef.current);
 
   const proj = new ScrollProjector({
-    contentSize: contentRect.width,
-    trackSize: trackRect.width,
-    viewportSize: viewportRect.width,
+    contentSize: isHorizontal ? contentRect.width : contentRect.height,
+    trackSize: isHorizontal ? trackRect.width : trackRect.height,
+    viewportSize: isHorizontal ? viewportRect.width : viewportRect.height,
     thumbMinSize,
   });
 
-  const scrollOffset = viewportRect.x - contentRect.x;
-  const thumbX = proj.contentToTrack(scrollOffset);
+  const contentStart = isHorizontal ? contentRect.x : contentRect.y;
+  const viewportStart = isHorizontal ? viewportRect.x : viewportRect.y;
+
+  const scrollOffset = viewportStart - contentStart;
+  const thumbPosition = proj.contentToTrack(scrollOffset);
   const thumbSize = proj.getThumbSize();
 
   const onMouseDown = useOnDrag((downEvt) => {
     downEvt.preventDefault();
-    const startClientX = downEvt.clientX;
-    const startThumbX = thumbX;
+    const initialClientPosition = isHorizontal ? downEvt.clientX : downEvt.clientY;
+    const initialThumbPosition = thumbPosition;
 
     return (moveEvt: MouseEvent) => {
       moveEvt.preventDefault();
-      const delta = moveEvt.clientX - startClientX;
-      const trackPos = Math.min(Math.max(startThumbX + delta, 0), trackRect.width - thumbSize);
+      const clientPosition = isHorizontal ? moveEvt.clientX : moveEvt.clientY;
+      const delta = clientPosition - initialClientPosition;
+      const trackSize = isHorizontal ? trackRect.width : trackRect.height;
+      const trackPos = Math.min(Math.max(initialThumbPosition + delta, 0), trackSize - thumbSize);
       const newScrollOffset = proj.trackToContent(trackPos);
       onScrollChange(-newScrollOffset);
     };
   });
 
   const thumbStyle: CSSProperties = {
-    left: thumbX,
-    top: 0,
-    width: thumbSize,
-    height: "100%",
+    left: isHorizontal ? thumbPosition : 0,
+    top: isHorizontal ? 0 : thumbPosition,
+    width: isHorizontal ? thumbSize : "100%",
+    height: isHorizontal ? "100%" : thumbSize,
+  };
+
+  const trackStyle: CSSProperties = {
+    width: isHorizontal ? "100%" : height,
+    height: isHorizontal ? height : "100%",
   };
 
   return (
-    <div
-      ref={trackRef}
-      style={{ width: "100%", height }}
-      className="w-full h-4 bg-gray-200 relative"
-    >
+    <div ref={trackRef} style={trackStyle} className="w-full h-4 bg-gray-200 relative">
       <div
-        ref={thumbRef}
         onMouseDown={onMouseDown}
         className="h-4 absolute bg-blue-600 hover:bg-blue-700"
         style={thumbStyle}
