@@ -8,30 +8,26 @@ import { PageResponse } from "../types/PageResponse";
 
 interface Params<Row> {
   pagination: TablePagination<Row>;
-  scrollElement: HTMLDivElement | null;
-  deltaY: number;
+  viewportHeight: number;
+  scrollTop: number;
   rowBuffer: number;
   rowPixelHeight: number;
   abortSignal: AbortSignal;
   onFetchPages: (pageIndexes: number[], pageSize: number) => Promise<PageResponse<Row>[]>;
   getItemId: (item: Row) => Id;
+  setScrollTop: (scrollTop: number) => void;
   onPaginationChange: Dispatch<SetStateAction<TablePagination<Row>>>;
 }
 
 export async function onScrollFetch<Row>(params: Params<Row>) {
-  const { scrollElement, deltaY, rowBuffer, rowPixelHeight, onFetchPages, getItemId } = params;
-  if (!scrollElement) return;
-
-  const scrollTop = deltaY + (scrollElement.scrollTop || 0);
-  const containerHeight = scrollElement.clientHeight || 0;
-  scrollElement.scrollTop = Math.max(scrollTop, 0);
+  params.setScrollTop(params.scrollTop);
 
   const range = viewToVisibleRange({
-    buffer: rowBuffer,
+    buffer: params.rowBuffer,
     totalRows: params.pagination.totalRows,
-    rowPixelHeight: rowPixelHeight,
-    scrollTop,
-    containerHeight,
+    rowPixelHeight: params.rowPixelHeight,
+    scrollTop: -params.scrollTop,
+    viewportHeight: params.viewportHeight,
   });
 
   const visibleEntries = rangeToEntries(range, params.pagination);
@@ -41,8 +37,8 @@ export async function onScrollFetch<Row>(params: Params<Row>) {
   const fetchPromise = cursorFetch({
     entries: visibleEntries,
     paginatedState: params.pagination,
-    onFetchPages,
-    getItemId,
+    onFetchPages: params.onFetchPages,
+    getItemId: params.getItemId,
   });
 
   let result: PagesWithCursor<Row>;
@@ -59,7 +55,7 @@ export async function onScrollFetch<Row>(params: Params<Row>) {
   const { state, cursor } = result;
 
   const offset = cursor?.offset || 0;
-  scrollElement.scrollTop = Math.max(scrollTop + offset * rowPixelHeight, 0);
+  params.setScrollTop(params.scrollTop + offset * params.rowPixelHeight);
 
   params.onPaginationChange({
     pages: state.pages,

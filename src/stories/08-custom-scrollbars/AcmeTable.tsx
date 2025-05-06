@@ -2,9 +2,10 @@ import { Resizer } from "./Resizer";
 import { PagesLoadingStatus } from "./PagesLoadingStatus";
 import { Row } from "./Row";
 import { Table, useTable, Column } from "./table";
-import { useRef, useState } from "react";
+import { CSSProperties, useRef, useState } from "react";
 import { apiGetPage } from "./helpers/fake-server";
 import clsx from "clsx";
+import { Scrollbar } from "./table/components/Scrollbar";
 
 const defaultColumns: Column<Row>[] = [
   {
@@ -15,19 +16,19 @@ const defaultColumns: Column<Row>[] = [
   },
   {
     id: "name",
-    width: 100,
+    width: 400,
     BodyCell: ({ record }) => <div className="truncate">{record?.name}</div>,
     HeaderCell: () => <span className="truncate">Name</span>,
   },
   {
     id: "age",
-    width: 100,
+    width: 200,
     BodyCell: ({ record }) => <div>{record?.age}</div>,
     HeaderCell: () => <span>Age</span>,
   },
   {
     id: "email",
-    width: "auto",
+    width: 600,
     BodyCell: ({ record }) => <div className="text-nowrap">{record?.email}</div>,
     HeaderCell: () => <span>Email</span>,
   },
@@ -75,40 +76,88 @@ export function AcmeTable() {
     );
   };
 
+  const tableStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    height: "100%",
+  };
+
+  const viewportStyle: CSSProperties = {
+    height: "100%",
+    overflow: "hidden",
+    width: "100%",
+    position: "relative",
+  };
+
+  const headerStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "row",
+  };
+
+  const bodyStyle: CSSProperties = {
+    display: "grid",
+    width: "fit-content",
+    minWidth: "100%",
+    gridTemplateRows: `repeat(${table.totalRows}, minmax(0, 1fr))`,
+    minHeight: table.totalRows * table.rowPixelHeight,
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <Resizer>
-        <Table className="border border-slate-400 rounded overflow-hidden">
-          <Table.Header state={table}>
-            {(column) => (
-              <Table.HeaderCell
-                key={column.id}
-                column={column}
-                className="border-b border-slate-400 py-1 px-2 bg-slate-100 rounded-t hover:bg-slate-200 relative"
+        <div
+          className="grid grid-cols-2 gap-2 overflow-hidden h-full"
+          style={{ gridTemplateColumns: "1fr auto", gridTemplateRows: "1fr auto" }}
+        >
+          <div style={tableStyle} className="border border-slate-400 rounded overflow-hidden">
+            <div style={viewportStyle} ref={table.setViewportElement}>
+              <div
+                style={{
+                  position: "absolute",
+                  width: "fit-content",
+                  minWidth: "100%",
+                  height: "fit-content",
+                  minHeight: "100%",
+                  top: table.girdPosition.y,
+                  left: table.girdPosition.x,
+                }}
               >
-                <column.HeaderCell />
-                <HeaderResizer minWidth={20} onWidthChange={onColumnResize(column.id)} />
-              </Table.HeaderCell>
-            )}
-          </Table.Header>
-          <Table.Body state={table}>
-            {(row, rowIndex) => (
-              <Table.BodyRow
-                key={rowIndex}
-                state={table}
-                row={row}
-                rowIndex={rowIndex}
-                className="outline outline-gray-300 not-last-of-type:border-b border-slate-300 items-center cursor-pointer"
-              >
-                {(column) => (
-                  <Table.RowCell className="p-1 px-2" key={column.id} column={column}>
-                    <column.BodyCell record={row} recordIndex={rowIndex} />
-                  </Table.RowCell>
-                )}
-              </Table.BodyRow>
-            )}
-          </Table.Body>
-        </Table>
+                <div style={headerStyle}>
+                  {table.columns.map((column) => (
+                    <Table.HeaderCell
+                      key={column.id}
+                      column={column}
+                      className="border-b border-slate-400 py-1 px-2 bg-slate-100 rounded-t hover:bg-slate-200 relative"
+                    >
+                      <column.HeaderCell />
+                      <HeaderResizer minWidth={20} onWidthChange={onColumnResize(column.id)} />
+                    </Table.HeaderCell>
+                  ))}
+                </div>
+                <div style={bodyStyle} ref={table.setContentElement}>
+                  {table.visibleRows.map(({ record, recordIndex }) => (
+                    <Table.BodyRow
+                      key={recordIndex}
+                      state={table}
+                      row={record}
+                      rowIndex={recordIndex}
+                      className="outline outline-gray-300 not-last-of-type:border-b border-slate-300 items-center cursor-pointer"
+                    >
+                      {(column) => (
+                        <Table.RowCell className="p-1 px-2" key={column.id} column={column}>
+                          <column.BodyCell record={record} recordIndex={recordIndex} />
+                        </Table.RowCell>
+                      )}
+                    </Table.BodyRow>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <Table.Scrollbar state={table} direction="vertical" className="w-2 h-full" />
+          <Table.Scrollbar state={table} direction="horizontal" className="w-full h-2" />
+        </div>
       </Resizer>
       <PagesLoadingStatus totalPages={table.totalRows} fetchingPageIndexes={fetchingPageIndexes} />
     </div>

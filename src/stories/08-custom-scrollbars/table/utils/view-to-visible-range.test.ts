@@ -6,7 +6,7 @@ test("get visible rows", () => {
     totalRows: 100,
     rowPixelHeight: 20,
     scrollTop: 0,
-    containerHeight: 200,
+    viewportHeight: 200,
   });
   expect(result).toEqual([0, 12]);
 });

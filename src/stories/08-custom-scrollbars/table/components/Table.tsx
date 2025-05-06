@@ -5,6 +5,8 @@ import { Body } from "./Body";
 import { HeaderCell } from "./HeaderCell";
 import { Header } from "./Header";
 import { DivProps } from "../types/DivProps";
+import { Scrollbar } from "./Scrollbar";
+import { Viewport } from "./Viewport";
 
 export function Table(props: DivProps) {
   const style: CSSProperties = {
@@ -25,3 +27,5 @@ Table.HeaderCell = HeaderCell;
 Table.Body = Body;
 Table.BodyRow = BodyRow;
 Table.RowCell = RowCell;
+Table.Scrollbar = Scrollbar;
+Table.Viewport = Viewport;

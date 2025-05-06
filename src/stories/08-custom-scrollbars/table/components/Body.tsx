@@ -7,23 +7,30 @@ interface BodyProps<Row> {
 }
 export function Body<Row>(props: BodyProps<Row>) {
   const rootStyle: CSSProperties = {
-    width: "100%",
     height: "100%",
-    overflow: "auto",
+    overflow: "clip",
+    width: "100%",
+    position: "relative",
   };
   const gridStyle: CSSProperties = {
     display: "grid",
-    width: "100%",
+    width: "fit-content",
+    minWidth: "100%",
     gridTemplateRows: `repeat(${props.state.totalRows}, minmax(0, 1fr))`,
     minHeight: props.state.totalRows * props.state.rowPixelHeight,
   };
+  const positionStyle: CSSProperties = {
+    position: "absolute",
+    height: "100%",
+    width: "100%",
+    top: props.state.girdPosition.y,
+    left: props.state.girdPosition.x,
+  };
   return (
-    <div style={rootStyle} ref={props.state.setScrollContainerElement}>
-      <div style={gridStyle}>
-        {props.state.visibleRows.map(({ record, recordIndex }) =>
-          props.children(record, recordIndex)
-        )}
-      </div>
+    <div style={gridStyle} ref={props.state.setContentElement}>
+      {props.state.visibleRows.map(({ record, recordIndex }) =>
+        props.children(record, recordIndex)
+      )}
     </div>
   );
 }
