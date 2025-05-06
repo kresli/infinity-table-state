@@ -11,7 +11,7 @@ interface ScrollbarProps<Row> extends React.HTMLProps<HTMLDivElement> {
 }
 
 export function Scrollbar<Row>(props: ScrollbarProps<Row>) {
-  const { viewportElement, contentElement } = props.state;
+  const { viewportElement, gridElement: contentElement } = props.state;
   const [contentRect, setContentRect] = useState<DOMRect>(() => new DOMRect());
   const [viewportRect, setViewportRect] = useState<DOMRect>(() => new DOMRect());
 
@@ -25,7 +25,7 @@ export function Scrollbar<Row>(props: ScrollbarProps<Row>) {
 
   const onScrollChange = (value: number) => {
     const isHorizontal = props.direction === "horizontal";
-    const prevValue = props.state.girdPosition;
+    const prevValue = props.state.gridPosition;
     const updatedValue = {
       x: isHorizontal ? value : prevValue.x,
       y: isHorizontal ? prevValue.y : value,

@@ -23,11 +23,11 @@ export function Body<Row>(props: BodyProps<Row>) {
     position: "absolute",
     height: "100%",
     width: "100%",
-    top: props.state.girdPosition.y,
-    left: props.state.girdPosition.x,
+    top: props.state.gridPosition.y,
+    left: props.state.gridPosition.x,
   };
   return (
-    <div style={gridStyle} ref={props.state.setContentElement}>
+    <div style={gridStyle} ref={props.state.setGridElement}>
       {props.state.visibleRows.map(({ record, recordIndex }) =>
         props.children(record, recordIndex)
       )}

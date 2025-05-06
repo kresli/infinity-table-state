@@ -1,4 +1,3 @@
-import { Column } from "../types/Column";
 import { useState } from "react";
 import { useClientRectObserver } from "./use-client-rect-observer";
 import { useAbortController } from "./use-abort-controller";
@@ -10,7 +9,6 @@ import { PageResponse } from "../types/PageResponse";
 import { Entry } from "../types/Entry";
 
 export interface UseTableProps<Row> {
-  columns: Column<Row>[];
   rowPixelHeight: number;
   rowBuffer: number;
   onFetchPages: (pageIndexes: number[], pageSize: number) => Promise<PageResponse<Row>[]>;
@@ -18,15 +16,14 @@ export interface UseTableProps<Row> {
 }
 
 export interface UseTable<Row> {
-  columns: Column<Row>[];
   totalRows: number;
   rowPixelHeight: number;
   visibleRows: Entry<Row>[];
   viewportElement: HTMLDivElement | null;
-  contentElement: HTMLDivElement | null;
-  girdPosition: { x: number; y: number };
+  gridElement: HTMLDivElement | null;
+  gridPosition: { x: number; y: number };
   setViewportElement: (element: HTMLDivElement | null) => void;
-  setContentElement: (element: HTMLDivElement | null) => void;
+  setGridElement: (element: HTMLDivElement | null) => void;
   refechVisibleRows: () => Promise<void>;
   setGridPosition: (position: { x: number; y: number }) => void;
 }
@@ -40,7 +37,7 @@ const defaultPagination: TablePagination<never> = {
 
 export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
-  const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
+  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const [gridPosition, setGridPosition] = useState({ x: 0, y: 0 });
   const abortController = useAbortController();
 
@@ -77,16 +74,15 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
   };
 
   return {
-    columns: props.columns,
     totalRows: pagination.totalRows,
     rowPixelHeight: props.rowPixelHeight,
     visibleRows: pagination.visibleRows,
-    viewportElement: viewportElement,
-    contentElement,
-    girdPosition: gridPosition,
+    viewportElement,
+    gridElement,
+    gridPosition,
     setViewportElement,
     refechVisibleRows,
-    setContentElement,
+    setGridElement,
     setGridPosition: updateViewportPosition,
   };
 }

@@ -63,7 +63,6 @@ export function AcmeTable() {
   };
 
   const table = useTable<Row>({
-    columns,
     rowPixelHeight,
     rowBuffer,
     getItemId,
@@ -93,6 +92,9 @@ export function AcmeTable() {
   const headerStyle: CSSProperties = {
     display: "flex",
     flexDirection: "row",
+    overflow: "hidden",
+    position: "relative",
+    height: 32,
   };
 
   const bodyStyle: CSSProperties = {
@@ -107,9 +109,27 @@ export function AcmeTable() {
     <div className="flex flex-col gap-2">
       <Resizer>
         <div
-          className="grid grid-cols-2 gap-2 overflow-hidden h-full"
-          style={{ gridTemplateColumns: "1fr auto", gridTemplateRows: "1fr auto" }}
+          className="grid gap-2 overflow-hidden h-full"
+          style={{ gridTemplateColumns: "1fr auto", gridTemplateRows: "auto 1fr auto" }}
         >
+          <div style={headerStyle} className="border border-slate-400 rounded overflow-hidden">
+            <div
+              className="flex flex-row overflow-hidden absolute h-full "
+              style={{ left: table.gridPosition.x }}
+            >
+              {columns.map((column) => (
+                <Table.HeaderCell
+                  key={column.id}
+                  column={column}
+                  className="px-2 bg-slate-100 hover:bg-slate-200 relative h-full items-center flex"
+                >
+                  <column.HeaderCell />
+                  <HeaderResizer minWidth={20} onWidthChange={onColumnResize(column.id)} />
+                </Table.HeaderCell>
+              ))}
+            </div>
+          </div>
+          <div />
           <div style={tableStyle} className="border border-slate-400 rounded overflow-hidden">
             <div style={viewportStyle} ref={table.setViewportElement}>
               <div
@@ -119,23 +139,11 @@ export function AcmeTable() {
                   minWidth: "100%",
                   height: "fit-content",
                   minHeight: "100%",
-                  top: table.girdPosition.y,
-                  left: table.girdPosition.x,
+                  top: table.gridPosition.y,
+                  left: table.gridPosition.x,
                 }}
               >
-                <div style={headerStyle}>
-                  {table.columns.map((column) => (
-                    <Table.HeaderCell
-                      key={column.id}
-                      column={column}
-                      className="border-b border-slate-400 py-1 px-2 bg-slate-100 rounded-t hover:bg-slate-200 relative"
-                    >
-                      <column.HeaderCell />
-                      <HeaderResizer minWidth={20} onWidthChange={onColumnResize(column.id)} />
-                    </Table.HeaderCell>
-                  ))}
-                </div>
-                <div style={bodyStyle} ref={table.setContentElement}>
+                <div style={bodyStyle} ref={table.setGridElement}>
                   {table.visibleRows.map(({ record, recordIndex }) => (
                     <Table.BodyRow
                       key={recordIndex}
@@ -144,11 +152,11 @@ export function AcmeTable() {
                       rowIndex={recordIndex}
                       className="outline outline-gray-300 not-last-of-type:border-b border-slate-300 items-center cursor-pointer"
                     >
-                      {(column) => (
+                      {columns.map((column) => (
                         <Table.RowCell className="p-1 px-2" key={column.id} column={column}>
                           <column.BodyCell record={record} recordIndex={recordIndex} />
                         </Table.RowCell>
-                      )}
+                      ))}
                     </Table.BodyRow>
                   ))}
                 </div>

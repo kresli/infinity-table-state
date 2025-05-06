@@ -1,13 +1,11 @@
-import { ReactElement, CSSProperties } from "react";
+import { CSSProperties } from "react";
 import { UseTable } from "../hooks/use-table";
-import { Column } from "../types/Column";
 import { DivProps } from "../types/DivProps";
 
-interface BodyRowProps<Row> extends Omit<DivProps, "children"> {
+interface BodyRowProps<Row> extends DivProps {
   state: UseTable<Row>;
   row: Row | null;
   rowIndex: number;
-  children: (column: Column<Row>) => ReactElement | null;
 }
 export function BodyRow<Row>(props: BodyRowProps<Row>) {
   const { state, rowIndex, children, ...htmlProps } = props;
@@ -22,7 +20,7 @@ export function BodyRow<Row>(props: BodyRowProps<Row>) {
   };
   return (
     <div style={style} {...htmlProps}>
-      {state.columns.map((column) => children(column))}
+      {children}
     </div>
   );
 }
