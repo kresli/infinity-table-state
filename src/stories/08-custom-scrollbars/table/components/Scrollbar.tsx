@@ -5,6 +5,7 @@ import { useOnDrag } from "../hooks/use-on-drag";
 import { UseTable } from "../hooks/use-table";
 import { useMutationObserver } from "../hooks/use-mutation-observer";
 import { DivProps } from "../types/DivProps";
+import { useDraggingGhost } from "../hooks/useDraggingGhost";
 
 type OnMouseDown = (e: React.MouseEvent) => void;
 
@@ -84,12 +85,18 @@ function ScrollbarInner(props: {
   const thumbPosition = proj.contentToTrack(scrollOffset);
   const thumbSize = proj.getThumbSize();
 
+  const draggingGhost = useDraggingGhost({
+    minWidth: 100,
+    onWidthChange,
+  });
+
   const onMouseDown = useOnDrag((downEvt) => {
     downEvt.preventDefault();
+    downEvt.stopPropagation();
     const initialClientPosition = isHorizontal ? downEvt.clientX : downEvt.clientY;
     const initialThumbPosition = thumbPosition;
 
-    return (moveEvt: MouseEvent) => {
+    return (moveEvt) => {
       moveEvt.preventDefault();
       const clientPosition = isHorizontal ? moveEvt.clientX : moveEvt.clientY;
       const delta = clientPosition - initialClientPosition;
@@ -100,20 +107,18 @@ function ScrollbarInner(props: {
     };
   });
 
-  const onTrackMouseDown = (e: React.MouseEvent) => {
-    if (e.target !== trackRef.current) return;
-    const clientPosition = isHorizontal ? e.clientX : e.clientY;
-    const trackSize = isHorizontal ? trackRect.width : trackRect.height;
-    const thumbPos = Math.min(
-      Math.max(
-        clientPosition - trackRef.current.getBoundingClientRect()[isHorizontal ? "left" : "top"],
-        0
-      ),
-      trackSize - thumbSize
-    );
-    const newScrollOffset = proj.trackToContent(thumbPos);
-    onScrollChange(-newScrollOffset);
-  };
+  const onTrackMouseDown = useOnDrag((downEvt) => {
+    downEvt.preventDefault();
+    const onUpdate = (evt: MouseEvent | React.MouseEvent) => {
+      evt.preventDefault();
+      const clientPosition = isHorizontal ? evt.clientX : evt.clientY;
+      const viewportOffset = isHorizontal ? viewportRect.x : viewportRect.y;
+      const newScrollOffset = proj.trackToContent(clientPosition - viewportOffset - thumbSize / 2);
+      onScrollChange(-newScrollOffset);
+    };
+    onUpdate(downEvt);
+    return (moveEvt) => onUpdate(moveEvt);
+  });
 
   const trackStyle: CSSProperties = {
     position: "relative",
@@ -125,7 +130,7 @@ function ScrollbarInner(props: {
       ref={trackRef}
       style={trackStyle}
       className={props.className}
-      // onMouseDown={onTrackMouseDown}
+      onMouseDown={onTrackMouseDown}
     >
       {props.children({
         position: thumbPosition,
