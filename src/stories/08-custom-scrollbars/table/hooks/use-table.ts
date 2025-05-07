@@ -73,6 +73,12 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     }));
   };
 
+  const onGridPositionChange = (position: { x: number; y: number }) => {
+    updateViewportPosition(position);
+    if (position.y === gridPosition.y) return;
+    updateState({ deltaY: gridPosition.y - position.y });
+  };
+
   return {
     totalRows: pagination.totalRows,
     rowPixelHeight: props.rowPixelHeight,
@@ -83,6 +89,6 @@ export function useTable<Row>(props: UseTableProps<Row>): UseTable<Row> {
     setViewportElement,
     refechVisibleRows,
     setGridElement,
-    setGridPosition: updateViewportPosition,
+    setGridPosition: onGridPositionChange,
   };
 }

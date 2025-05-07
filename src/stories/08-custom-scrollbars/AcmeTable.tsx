@@ -163,8 +163,40 @@ export function AcmeTable() {
               </div>
             </div>
           </div>
-          <Table.Scrollbar state={table} direction="vertical" className="w-2 h-full" />
-          <Table.Scrollbar state={table} direction="horizontal" className="w-full h-2" />
+          <Table.Scrollbar
+            state={table}
+            direction="vertical"
+            className="w-3 h-full bg-slate-100 border border-slate-200 rounded-full hover:border-slate-300"
+          >
+            {({ position, size, onMouseDown }) => (
+              <div
+                onMouseDown={onMouseDown}
+                className="absolute w-full"
+                style={{ height: size, top: position }}
+              >
+                <div className="w-full h-full rounded-full py-1 px-0.5 group">
+                  <div className="h-full bg-slate-300 w-full rounded group-hover:bg-slate-400" />
+                </div>
+              </div>
+            )}
+          </Table.Scrollbar>
+          <Table.Scrollbar
+            state={table}
+            direction="horizontal"
+            className="w-full h-3 bg-slate-100 border border-slate-200 rounded-full hover:border-slate-300"
+          >
+            {({ position, size, onMouseDown }) => (
+              <div
+                onMouseDown={onMouseDown}
+                className="absolute h-full"
+                style={{ width: size, left: position }}
+              >
+                <div className="w-full h-full rounded-full px-1 py-0.5 group">
+                  <div className="h-full bg-slate-300 w-full rounded group-hover:bg-slate-400" />
+                </div>
+              </div>
+            )}
+          </Table.Scrollbar>
         </div>
       </Resizer>
       <PagesLoadingStatus totalPages={table.totalRows} fetchingPageIndexes={fetchingPageIndexes} />

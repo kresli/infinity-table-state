@@ -4,10 +4,20 @@ import { ScrollProjector } from "../utils/projector";
 import { useOnDrag } from "../hooks/use-on-drag";
 import { UseTable } from "../hooks/use-table";
 import { useMutationObserver } from "../hooks/use-mutation-observer";
+import { DivProps } from "../types/DivProps";
 
-interface ScrollbarProps<Row> extends React.HTMLProps<HTMLDivElement> {
+type OnMouseDown = (e: React.MouseEvent) => void;
+
+type ScrollbarChildrenProps = (props: {
+  position: number;
+  size: number;
+  onMouseDown: OnMouseDown;
+}) => React.ReactNode;
+
+interface ScrollbarProps<Row> extends Omit<DivProps, "children"> {
   state: UseTable<Row>;
   direction: "horizontal" | "vertical";
+  children: ScrollbarChildrenProps;
 }
 
 export function Scrollbar<Row>(props: ScrollbarProps<Row>) {
@@ -49,12 +59,14 @@ function ScrollbarInner(props: {
   viewportRect: DOMRect;
   thumbMinSize: number;
   direction: "horizontal" | "vertical";
+  style?: CSSProperties;
+  className?: string;
+  children: ScrollbarChildrenProps;
   onScrollChange: (value: number) => void;
 }) {
   const { contentRect, viewportRect, thumbMinSize, onScrollChange } = props;
   const isHorizontal = props.direction === "horizontal";
   const trackRef = useRef<HTMLDivElement>(null);
-  const height = 10;
 
   const trackRect = useClientRect(trackRef.current);
 
@@ -88,25 +100,38 @@ function ScrollbarInner(props: {
     };
   });
 
-  const thumbStyle: CSSProperties = {
-    left: isHorizontal ? thumbPosition : 0,
-    top: isHorizontal ? 0 : thumbPosition,
-    width: isHorizontal ? thumbSize : "100%",
-    height: isHorizontal ? "100%" : thumbSize,
+  const onTrackMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== trackRef.current) return;
+    const clientPosition = isHorizontal ? e.clientX : e.clientY;
+    const trackSize = isHorizontal ? trackRect.width : trackRect.height;
+    const thumbPos = Math.min(
+      Math.max(
+        clientPosition - trackRef.current.getBoundingClientRect()[isHorizontal ? "left" : "top"],
+        0
+      ),
+      trackSize - thumbSize
+    );
+    const newScrollOffset = proj.trackToContent(thumbPos);
+    onScrollChange(-newScrollOffset);
   };
 
   const trackStyle: CSSProperties = {
-    width: isHorizontal ? "100%" : height,
-    height: isHorizontal ? height : "100%",
+    position: "relative",
+    ...props.style,
   };
 
   return (
-    <div ref={trackRef} style={trackStyle} className="w-full h-4 bg-gray-200 relative">
-      <div
-        onMouseDown={onMouseDown}
-        className="h-4 absolute bg-blue-600 hover:bg-blue-700"
-        style={thumbStyle}
-      />
+    <div
+      ref={trackRef}
+      style={trackStyle}
+      className={props.className}
+      // onMouseDown={onTrackMouseDown}
+    >
+      {props.children({
+        position: thumbPosition,
+        size: thumbSize,
+        onMouseDown,
+      })}
     </div>
   );
 }
