@@ -5,7 +5,6 @@ import { useOnDrag } from "../hooks/use-on-drag";
 import { UseTable } from "../hooks/use-table";
 import { useMutationObserver } from "../hooks/use-mutation-observer";
 import { DivProps } from "../types/DivProps";
-import { useDraggingGhost } from "../hooks/useDraggingGhost";
 
 type OnMouseDown = (e: React.MouseEvent) => void;
 
@@ -85,10 +84,10 @@ function ScrollbarInner(props: {
   const thumbPosition = proj.contentToTrack(scrollOffset);
   const thumbSize = proj.getThumbSize();
 
-  const draggingGhost = useDraggingGhost({
-    minWidth: 100,
-    onWidthChange,
-  });
+  // const draggingGhost = useDraggingGhost({
+  //   minWidth: 100,
+  //   onWidthChange,
+  // });
 
   const onMouseDown = useOnDrag((downEvt) => {
     downEvt.preventDefault();

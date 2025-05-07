@@ -2,12 +2,10 @@ import { Resizer } from "./Resizer";
 import { PagesLoadingStatus } from "./PagesLoadingStatus";
 import { Row } from "./Row";
 import { Table, useTable, Column } from "./table";
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useRef, useState } from "react";
 import { apiGetPage } from "./helpers/fake-server";
 import clsx from "clsx";
 import { Scrollbar } from "./table/components/Scrollbar";
-import { useDraggingGhost } from "./table/hooks/useDraggingGhost";
-import { useOnDrag } from "./table/hooks/use-on-drag";
 
 const defaultColumns: Column<Row>[] = [
   {
@@ -207,21 +205,7 @@ export function AcmeTable() {
 }
 
 function HeaderResizer(props: { minWidth: number; onWidthChange: (width: number) => void }) {
-  const { onMouseDown, resizing } = useDraggingGhost(props);
-  const onMouseDown = useOnDrag((downEvt) => {
-    downEvt.preventDefault();
-    downEvt.stopPropagation();
-    const startX = downEvt.clientX;
-    const startWidth = downEvt.currentTarget.parentElement?.clientWidth || 0;
-    let newWidth = startWidth;
-    return (e) => {
-      const width = Math.max(startWidth + e.clientX - startX, props.minWidth);
-      newWidth = width;
-      props.onWidthChange(width);
-      setResizing(true);
-      ghostRef.current!.moveTo(e.clientX, e.clientY);
-    };
-  });
+  const { onMouseDown, resizing } = useDraggingGhoast(props);
   return (
     <div
       className={clsx(
@@ -231,4 +215,65 @@ function HeaderResizer(props: { minWidth: number; onWidthChange: (width: number)
       onMouseDown={onMouseDown}
     />
   );
+}
+
+function useDraggingGhoast(props: { minWidth: number; onWidthChange: (width: number) => void }) {
+  const [resizing, setResizing] = useState(false);
+  const ghostRef = useRef<Ghost>(null);
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = e.currentTarget.parentElement?.clientWidth || 0;
+    let newWidth = startWidth;
+    ghostRef.current = createGhost();
+    const onMouseMove = (e: MouseEvent) => {
+      const width = Math.max(startWidth + e.clientX - startX, props.minWidth);
+      newWidth = width;
+      props.onWidthChange(width);
+      setResizing(true);
+      ghostRef.current!.moveTo(e.clientX, e.clientY);
+    };
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      props.onWidthChange(newWidth);
+      setResizing(false);
+      ghostRef.current?.remove();
+      ghostRef.current = null;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  return {
+    onMouseDown,
+    resizing,
+  };
+}
+
+interface Ghost {
+  remove: () => void;
+  moveTo: (x: number, y: number) => void;
+}
+
+function createGhost() {
+  const width = 1000;
+  const height = 1000;
+  const ghost = document.createElement("div");
+  ghost.style.position = "fixed";
+  ghost.style.zIndex = "9999";
+  // ghost.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+  ghost.style.width = "1000px";
+  ghost.style.height = "1000px";
+  document.body.appendChild(ghost);
+  return {
+    remove: () => {
+      document.body.removeChild(ghost);
+    },
+    // who knows what will happen if on overflow scroll
+    moveTo: (x: number, y: number) => {
+      ghost.style.left = `${x - width / 2}px`;
+      ghost.style.top = `${y - height / 2}px`;
+    },
+  };
 }
